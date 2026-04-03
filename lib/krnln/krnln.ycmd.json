@@ -1,0 +1,741 @@
+{
+  "contractVersion": "1.0",
+  "library": "krnln",
+  "libraryDisplayName": "核心支持库",
+  "libraryVersion": "1.0.0",
+  "implementations": {
+    "windows": {
+      "entry": "impl/windows.cpp",
+      "language": "cpp"
+    },
+    "linux": {
+      "entry": "impl/linux.cpp",
+      "language": "cpp"
+    },
+    "macos": {
+      "entry": "impl/macos.mm",
+      "language": "objc++"
+    }
+  },
+  "commands": [
+    {
+      "commandId": "krnln.messageBox",
+      "displayName": "信息框",
+      "summary": "弹出一个消息对话框。",
+      "params": [
+        {
+          "name": "text",
+          "type": "文本型"
+        },
+        {
+          "name": "title",
+          "type": "文本型",
+          "optional": true
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.textLength",
+      "displayName": "取文本长度",
+      "summary": "返回 UTF-8 文本字节长度。",
+      "params": [
+        {
+          "name": "text",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.getHdc",
+      "displayName": "取设备句柄",
+      "summary": "返回画板当前设备句柄（HDC）。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [],
+      "returnType": "长整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.clear",
+      "displayName": "清除",
+      "summary": "清除画板上的指定区域。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "清除区左上角横坐标",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "清除区左上角纵坐标",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "清除区宽度",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "清除区高度",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.getPixel",
+      "displayName": "取点",
+      "summary": "返回画板指定位置的颜色值，失败返回 -1。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "点纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.setPixel",
+      "displayName": "画点",
+      "summary": "在画板上指定位置画点。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "点纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "欲画入点的颜色值",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.lineTo",
+      "displayName": "画直线",
+      "summary": "在画板上画一条直线。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "起始点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "起始点纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "结束点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "结束点纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "线条颜色",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.drawRect",
+      "displayName": "画矩形",
+      "summary": "在画板上画一个矩形边框。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "矩形左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.fillRect",
+      "displayName": "填充矩形",
+      "summary": "用当前默认填充色填充指定矩形区域。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "矩形左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.ellipse",
+      "displayName": "画椭圆",
+      "summary": "在指定矩形边界内画椭圆。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "椭圆左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.roundRect",
+      "displayName": "画圆角矩形",
+      "summary": "在画板上画圆角矩形。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "矩形左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "圆角宽度",
+          "type": "整数型"
+        },
+        {
+          "name": "圆角高度",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.invertRect",
+      "displayName": "翻转矩形区",
+      "summary": "将指定矩形区域的颜色翻转。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "矩形左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形右下角纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.arcTo",
+      "displayName": "画弧线",
+      "summary": "在指定椭圆边界内按起止点画弧线。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "椭圆左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线起始点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线起始点纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线终止点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线终止点纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.chord",
+      "displayName": "画弦",
+      "summary": "在指定椭圆区域内画弦图形。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "椭圆左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线起始点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线起始点纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线终止点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线终止点纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.pie",
+      "displayName": "画饼",
+      "summary": "在指定椭圆区域内画饼图形。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "椭圆左上角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆左上角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "椭圆右下角纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线起始点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线起始点纵坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线终止点横坐标",
+          "type": "整数型"
+        },
+        {
+          "name": "弧线终止点纵坐标",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.unitCnv",
+      "displayName": "单位转换",
+      "summary": "在像素单位与当前绘画单位之间转换坐标值。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "欲转换的座标值",
+          "type": "整数型"
+        },
+        {
+          "name": "欲转换座标值的类型",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.setWritePos",
+      "displayName": "置写出位置",
+      "summary": "设置后续写出命令的文本写出位置。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "横向写出位置",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "纵向写出位置",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.write",
+      "displayName": "写出",
+      "summary": "在当前写出位置写出文本并更新写出位置。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "欲写出数据",
+          "type": "文本型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.print",
+      "displayName": "写文本行",
+      "summary": "写出文本后换行。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "欲写出数据",
+          "type": "文本型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.sprint",
+      "displayName": "滚动写行",
+      "summary": "写出文本后换行（当前实现与写文本行一致）。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "欲写出数据",
+          "type": "文本型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.say",
+      "displayName": "定位写出",
+      "summary": "在指定位置写出文本且不改变现行写出位置。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "横向写出位置",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "纵向写出位置",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "欲写出数据",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.getWidth",
+      "displayName": "取宽度",
+      "summary": "返回指定文本在当前绘图状态下的写出宽度。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "欲取其宽度或高度的数据",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.getHeight",
+      "displayName": "取高度",
+      "summary": "返回指定文本在当前绘图状态下的写出高度。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "欲取其宽度或高度的数据",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.drawJBRect",
+      "displayName": "画渐变矩形",
+      "summary": "在画板上绘制渐变填充矩形。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "矩形区域左边",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形区域顶边",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形区域宽度",
+          "type": "整数型"
+        },
+        {
+          "name": "矩形区域高度",
+          "type": "整数型"
+        },
+        {
+          "name": "渐变方向",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "首渐变颜色",
+          "type": "整数型"
+        },
+        {
+          "name": "其它渐变颜色",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.copy",
+      "displayName": "复制",
+      "summary": "将源画板指定区域复制到目标画板位置。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "欲复制区域的左边",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "欲复制区域的顶边",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "欲复制区域的宽度",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "欲复制区域的高度",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "复制到的目的画板",
+          "type": "画板",
+          "optional": true
+        },
+        {
+          "name": "欲复制到位置左边",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "欲复制到位置顶边",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "复制方法",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.drawPic",
+      "displayName": "画图片",
+      "summary": "将指定图片绘制到画板。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "图片号",
+          "type": "整数型"
+        },
+        {
+          "name": "图片左边画出位置",
+          "type": "整数型"
+        },
+        {
+          "name": "图片顶边画出位置",
+          "type": "整数型"
+        },
+        {
+          "name": "图片画出宽度",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "图片画出高度",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "图片画出方法",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.drawPanel.getPicWidth",
+      "displayName": "取图片宽度",
+      "summary": "返回图片宽度（按当前绘画单位）。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "图片号",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.getPicHeight",
+      "displayName": "取图片高度",
+      "summary": "返回图片高度（按当前绘画单位）。",
+      "category": "画板成员命令",
+      "isMember": true,
+      "ownerTypeName": "画板",
+      "params": [
+        {
+          "name": "图片号",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "整数型"
+    }
+  ]
+}

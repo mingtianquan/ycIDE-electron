@@ -1,0 +1,242 @@
+{
+  "formatVersion": "1.0",
+  "library": "krnln",
+  "libraryDisplayName": "核心支持库",
+  "libraryVersion": "1.0.0",
+  "commands": [
+    {
+      "commandId": "krnln.messageBox",
+      "displayName": "信息框",
+      "entry": "krnln_message_box",
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.textLength",
+      "displayName": "取文本长度",
+      "entry": "krnln_text_length",
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.drawPanel.getHdc",
+      "displayName": "取设备句柄",
+      "entry": "krnln_drawpanel_get_hdc",
+      "returnType": "长整数型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.clear",
+      "displayName": "清除",
+      "entry": "krnln_drawpanel_clear",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.getPixel",
+      "displayName": "取点",
+      "entry": "krnln_drawpanel_get_pixel",
+      "returnType": "整数型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.setPixel",
+      "displayName": "画点",
+      "entry": "krnln_drawpanel_set_pixel",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.lineTo",
+      "displayName": "画直线",
+      "entry": "krnln_drawpanel_line",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.drawRect",
+      "displayName": "画矩形",
+      "entry": "krnln_drawpanel_draw_rect",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.fillRect",
+      "displayName": "填充矩形",
+      "entry": "krnln_drawpanel_fill_rect",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.ellipse",
+      "displayName": "画椭圆",
+      "entry": "krnln_drawpanel_draw_ellipse",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.roundRect",
+      "displayName": "画圆角矩形",
+      "entry": "krnln_drawpanel_draw_round_rect",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.invertRect",
+      "displayName": "翻转矩形区",
+      "entry": "krnln_drawpanel_invert_rect",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.arcTo",
+      "displayName": "画弧线",
+      "entry": "krnln_drawpanel_arc",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.chord",
+      "displayName": "画弦",
+      "entry": "krnln_drawpanel_chord",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.pie",
+      "displayName": "画饼",
+      "entry": "krnln_drawpanel_pie",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.unitCnv",
+      "displayName": "单位转换",
+      "entry": "krnln_drawpanel_unit_cnv",
+      "returnType": "整数型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.setWritePos",
+      "displayName": "置写出位置",
+      "entry": "krnln_drawpanel_set_write_pos",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.write",
+      "displayName": "写出",
+      "entry": "krnln_drawpanel_write",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.print",
+      "displayName": "写文本行",
+      "entry": "krnln_drawpanel_print",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.sprint",
+      "displayName": "滚动写行",
+      "entry": "krnln_drawpanel_print",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.say",
+      "displayName": "定位写出",
+      "entry": "krnln_drawpanel_say",
+      "returnType": "逻辑型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.getWidth",
+      "displayName": "取宽度",
+      "entry": "krnln_drawpanel_get_text_width",
+      "returnType": "整数型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.getHeight",
+      "displayName": "取高度",
+      "entry": "krnln_drawpanel_get_text_height",
+      "returnType": "整数型",
+      "isMember": true,
+      "ownerTypeName": "画板"
+    },
+    {
+      "commandId": "krnln.drawPanel.drawJBRect",
+      "displayName": "?????",
+      "entry": "krnln_drawpanel_draw_jb_rect",
+      "returnType": "???",
+      "isMember": true,
+      "ownerTypeName": "??"
+    },
+    {
+      "commandId": "krnln.drawPanel.copy",
+      "displayName": "??",
+      "entry": "krnln_drawpanel_copy",
+      "returnType": "???",
+      "isMember": true,
+      "ownerTypeName": "??"
+    },
+    {
+      "commandId": "krnln.drawPanel.drawPic",
+      "displayName": "???",
+      "entry": "krnln_drawpanel_draw_pic",
+      "returnType": "???",
+      "isMember": true,
+      "ownerTypeName": "??"
+    },
+    {
+      "commandId": "krnln.drawPanel.getPicWidth",
+      "displayName": "?????",
+      "entry": "krnln_drawpanel_get_pic_width",
+      "returnType": "???",
+      "isMember": true,
+      "ownerTypeName": "??"
+    },
+    {
+      "commandId": "krnln.drawPanel.getPicHeight",
+      "displayName": "?????",
+      "entry": "krnln_drawpanel_get_pic_height",
+      "returnType": "???",
+      "isMember": true,
+      "ownerTypeName": "??"
+    }
+  ],
+  "components": [
+    {
+      "name": "画板",
+      "englishName": "Canvas",
+      "metadata": "window-units.json"
+    }
+  ],
+  "artifacts": {
+    "windows": {
+      "x64": {
+        "staticLib": "build/windows/x64/Release/krnln.lib"
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { join, dirname, basename, extname } from 'path'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, copyFileSync, rmSync } from 'fs'
-import { execFile, ChildProcess } from 'child_process'
+import { execFile, execFileSync, ChildProcess } from 'child_process'
 import { app, BrowserWindow } from 'electron'
 import { tmpdir } from 'os'
 import { libraryManager } from './libraryManager'
@@ -131,7 +131,7 @@ interface LibraryConstantDef extends ConstantDef {
   type: 'null' | 'number' | 'bool' | 'text'
 }
 
-type EventChannel = 'WM_COMMAND' | 'WM_NOTIFY' | 'WM_HSCROLL' | 'WM_VSCROLL'
+type EventChannel = 'WM_COMMAND' | 'WM_NOTIFY' | 'WM_HSCROLL' | 'WM_VSCROLL' | 'WM_PAINT'
 
 interface LibraryEventBindingSpec {
   library?: string
@@ -196,6 +196,7 @@ interface LoadedCompileProtocols {
 
 let compileProtocolCache: LoadedCompileProtocols | null = null
 let activeProjectCustomTypeNames: Set<string> = new Set()
+let activeControlTypeMap: Map<string, string> = new Map()
 
 // 正在运行的进程
 let runningProcess: ChildProcess | null = null
@@ -330,6 +331,177 @@ function buildZigTargetTriple(platform: TargetPlatform, arch: TargetArch): strin
   // macOS 目标不支持 x86；回退到 x64 以避免无效目标。
   if (arch === 'arm64') return 'aarch64-macos'
   return 'x86_64-macos'
+}
+
+function mapArchToWindowsLibDir(arch: TargetArch): 'x86' | 'x64' | 'arm64' {
+  if (arch === 'x86') return 'x86'
+  if (arch === 'arm64') return 'arm64'
+  return 'x64'
+}
+
+function compareVersionLikeDesc(a: string, b: string): number {
+  const ap = a.split('.').map(v => parseInt(v, 10))
+  const bp = b.split('.').map(v => parseInt(v, 10))
+  const len = Math.max(ap.length, bp.length)
+  for (let i = 0; i < len; i++) {
+    const av = Number.isFinite(ap[i]) ? ap[i] : 0
+    const bv = Number.isFinite(bp[i]) ? bp[i] : 0
+    if (av !== bv) return bv - av
+  }
+  return 0
+}
+
+function listSubDirs(baseDir: string): string[] {
+  if (!existsSync(baseDir)) return []
+  try {
+    return readdirSync(baseDir).filter(name => {
+      const abs = join(baseDir, name)
+      try {
+        return statSync(abs).isDirectory()
+      } catch {
+        return false
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+function normalizeDirPath(value?: string | null): string {
+  return (value || '').trim().replace(/[\\/]+$/, '')
+}
+
+function queryRegistryString(keyPath: string, valueName: string): string | null {
+  if (process.platform !== 'win32') return null
+  try {
+    const out = execFileSync('reg', ['query', keyPath, '/v', valueName], {
+      encoding: 'utf-8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }) as string
+    const lines = out.split(/\r?\n/)
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed.toLowerCase().startsWith(valueName.toLowerCase())) continue
+      const parts = trimmed.split(/\s{2,}/).filter(Boolean)
+      if (parts.length >= 3) {
+        return normalizeDirPath(parts.slice(2).join(' '))
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null
+}
+
+function getWindowsSdkLibRoots(): string[] {
+  if (process.platform !== 'win32') return []
+  const roots = new Set<string>()
+  const addRoot = (rootDir?: string | null): void => {
+    const base = normalizeDirPath(rootDir)
+    if (!base) return
+    if (/[\\/]Lib$/i.test(base)) {
+      if (existsSync(base)) roots.add(base)
+      return
+    }
+    const libDir = join(base, 'Lib')
+    if (existsSync(libDir)) roots.add(libDir)
+  }
+
+  addRoot(process.env.WindowsSdkDir)
+  addRoot(process.env.UniversalCRTSdkDir)
+  addRoot(process.env.KitsRoot10)
+
+  addRoot(queryRegistryString('HKLM\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots', 'KitsRoot10'))
+  addRoot(queryRegistryString('HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows Kits\\Installed Roots', 'KitsRoot10'))
+
+  addRoot('C:\\Program Files (x86)\\Windows Kits\\10')
+  addRoot('C:\\Program Files\\Windows Kits\\10')
+
+  return Array.from(roots)
+}
+
+function findWindowsSdkLibDir(kind: 'um' | 'ucrt', arch: TargetArch): string | null {
+  if (process.platform !== 'win32') return null
+  const archDir = mapArchToWindowsLibDir(arch)
+  const sdkLibRoots = getWindowsSdkLibRoots()
+  for (const sdkLibRoot of sdkLibRoots) {
+    const versions = listSubDirs(sdkLibRoot).sort(compareVersionLikeDesc)
+    for (const version of versions) {
+      const candidate = join(sdkLibRoot, version, kind, archDir)
+      if (!existsSync(candidate)) continue
+      if (kind === 'um' && existsSync(join(candidate, 'kernel32.lib'))) return candidate
+      if (kind === 'ucrt' && (existsSync(join(candidate, 'ucrt.lib')) || existsSync(join(candidate, 'libucrt.lib')))) return candidate
+    }
+  }
+  return null
+}
+
+function listVsInstallPathsByVsWhere(): string[] {
+  if (process.platform !== 'win32') return []
+  const vswhereCandidates = [
+    'C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe',
+    'C:\\Program Files\\Microsoft Visual Studio\\Installer\\vswhere.exe',
+  ]
+  const exe = vswhereCandidates.find(p => existsSync(p))
+  if (!exe) return []
+  try {
+    const out = execFileSync(exe, ['-products', '*', '-format', 'json'], {
+      encoding: 'utf-8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }) as string
+    const arr = JSON.parse(out) as Array<{ installationPath?: string }>
+    const result: string[] = []
+    for (const item of arr) {
+      const p = normalizeDirPath(item.installationPath)
+      if (p && existsSync(p)) result.push(p)
+    }
+    return result
+  } catch {
+    return []
+  }
+}
+
+function findMsvcToolLibDir(arch: TargetArch): string | null {
+  if (process.platform !== 'win32') return null
+  const archDir = mapArchToWindowsLibDir(arch)
+
+  const envVCTools = normalizeDirPath(process.env.VCToolsInstallDir)
+  if (envVCTools) {
+    const candidate = join(envVCTools, 'lib', archDir)
+    if (existsSync(candidate) && (existsSync(join(candidate, 'vcruntime.lib')) || existsSync(join(candidate, 'msvcrt.lib')))) {
+      return candidate
+    }
+  }
+
+  const installRoots = new Set<string>()
+  const vsRoots = [
+    'C:\\Program Files\\Microsoft Visual Studio\\2022',
+    'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022',
+  ]
+  const editions = ['Enterprise', 'Professional', 'Community', 'BuildTools', 'Preview']
+  for (const root of vsRoots) {
+    for (const edition of editions) {
+      installRoots.add(join(root, edition))
+    }
+  }
+  for (const path of listVsInstallPathsByVsWhere()) {
+    installRoots.add(path)
+  }
+
+  for (const installPath of installRoots) {
+    const msvcRoot = join(installPath, 'VC', 'Tools', 'MSVC')
+    const versions = listSubDirs(msvcRoot).sort(compareVersionLikeDesc)
+    for (const version of versions) {
+      const candidate = join(msvcRoot, version, 'lib', archDir)
+      if (!existsSync(candidate)) continue
+      if (existsSync(join(candidate, 'vcruntime.lib')) || existsSync(join(candidate, 'msvcrt.lib'))) {
+        return candidate
+      }
+    }
+  }
+  return null
 }
 
 function getBinaryFileName(projectName: string, outputType: string, platform: TargetPlatform): string {
@@ -803,7 +975,7 @@ function parseEventBindingsFromProtocol(content: string, libName: string): Norma
   for (const item of json.eventBindings) {
     if (!item || typeof item !== 'object') continue
     const channel = item.channel
-    if (!channel || !['WM_COMMAND', 'WM_NOTIFY', 'WM_HSCROLL', 'WM_VSCROLL'].includes(channel)) continue
+    if (!channel || !['WM_COMMAND', 'WM_NOTIFY', 'WM_HSCROLL', 'WM_VSCROLL', 'WM_PAINT'].includes(channel)) continue
 
     const unit = normalizeKey(item.unit || '')
     const event = normalizeKey(item.event || '')
@@ -952,10 +1124,23 @@ function resolveEventByProtocol(
   return null
 }
 
-function applyEmitTemplate(template: string, args: string[]): string {
-  const cArgs = args.map(a => formatArgForC(a))
+function applyEmitTemplate(
+  template: string,
+  args: string[],
+  commandMap?: Map<string, ResolvedCommand>,
+  directCallables?: DirectCallableNames,
+): string {
+  const cArgs = args.map(a => formatArgForC(a, commandMap, directCallables))
   return template
-    .replace(/\{args\}/g, cArgs.join(', '))
+    .replace(/\{args(?::(\d+))?\}/g, (_m, startText) => {
+      const start = startText ? parseInt(startText, 10) : 0
+      if (!Number.isInteger(start) || start < 0) return cArgs.join(', ')
+      return cArgs.slice(start).join(', ')
+    })
+    .replace(/\{(\d+)\|([^{}]*)\}/g, (_m, idxText, defaultExpr) => {
+      const idx = parseInt(idxText, 10)
+      return Number.isInteger(idx) && idx >= 0 && idx < cArgs.length ? cArgs[idx] : (defaultExpr || '0')
+    })
     .replace(/\{(\d+)\}/g, (_m, idxText) => {
       const idx = parseInt(idxText, 10)
       return Number.isInteger(idx) && idx >= 0 && idx < cArgs.length ? cArgs[idx] : '0'
@@ -968,6 +1153,8 @@ function resolveCommandByProtocol(
   commandName: string,
   commandEnglishName: string,
   args: string[],
+  commandMap?: Map<string, ResolvedCommand>,
+  directCallables?: DirectCallableNames,
 ): string | null {
   if (bindings.length === 0) return null
 
@@ -980,7 +1167,7 @@ function resolveCommandByProtocol(
     if (b.library && b.library !== lib) continue
     const matched = (!!b.command && b.command === cmd) || (!!b.commandEnglishName && b.commandEnglishName === cmdEn)
     if (!matched) continue
-    return applyEmitTemplate(b.emit, args)
+    return applyEmitTemplate(b.emit, args, commandMap, directCallables)
   }
   return null
 }
@@ -1017,6 +1204,62 @@ function resolveControlStyle(ctrlType: string, unit: LibWindowUnit | undefined, 
   const byProtocol = resolveControlByProtocol(protocolBindings, libraryFileName, unit?.name || ctrlType, unit?.englishName || '')
   if (byProtocol?.style) return byProtocol.style
   return getWin32Style(ctrlType)
+}
+
+interface ResolvedControlPropertyMeta {
+  index: number
+  typeName: string
+}
+
+function resolveControlPropertyMeta(ctrlName: string, propName: string): ResolvedControlPropertyMeta | null {
+  const ctrlType = activeControlTypeMap.get((ctrlName || '').trim())
+  if (!ctrlType) return null
+
+  const ctrlTypeKey = normalizeKey(ctrlType)
+  const propKey = normalizeKey(propName)
+  if (!propKey) return null
+
+  const allUnits = libraryManager.getAllWindowUnits()
+  const unit = allUnits.find(u => normalizeKey(u.name) === ctrlTypeKey || normalizeKey(u.englishName) === ctrlTypeKey)
+  if (!unit) return null
+
+  for (let i = 0; i < unit.properties.length; i++) {
+    const p = unit.properties[i]
+    if (normalizeKey(p.name) === propKey || normalizeKey(p.englishName || '') === propKey) {
+      return { index: i, typeName: p.typeName || '' }
+    }
+  }
+  return null
+}
+
+function isTextLikeType(typeName: string): boolean {
+  const t = normalizeKey(typeName)
+  return t.includes('文本') || t === 'text'
+}
+
+function isBinLikeType(typeName: string): boolean {
+  const t = normalizeKey(typeName)
+  return t.includes('字节集') || t === 'bin'
+}
+
+function buildControlPropertySetCode(ctrlName: string, propName: string, valueExpr: string, fallbackAsText: boolean): string | null {
+  const meta = resolveControlPropertyMeta(ctrlName, propName)
+  if (!meta) {
+    if (fallbackAsText) {
+      return `yc_set_control_text(L"${escapeCString(ctrlName)}", ${valueExpr});`
+    }
+    return null
+  }
+
+  if (isTextLikeType(meta.typeName)) {
+    return `yc_set_control_text(L"${escapeCString(ctrlName)}", ${valueExpr});`
+  }
+
+  if (isBinLikeType(meta.typeName)) {
+    return `{ YC_BIN __yc_prop_bin = ${valueExpr}; YC_BIN_VIEW __yc_prop_view = yc_make_bin_view(__yc_prop_bin); yc_set_control_prop_bin(L"${escapeCString(ctrlName)}", ${meta.index}, &__yc_prop_view); }`
+  }
+
+  return `yc_set_control_prop_num(L"${escapeCString(ctrlName)}", ${meta.index}, (intptr_t)(${valueExpr}));`
 }
 
 // 解析窗口文件
@@ -1193,9 +1436,88 @@ function collectLibraryConstants(usedLibraryNames?: Set<string>): LibraryConstan
   return result
 }
 
+function normalizeMemberTypeName(value: string): string {
+  return (value || '').trim().toLowerCase().replace(/(类型|类组件|控件)$/u, '')
+}
+
+function parseMemberCallName(name: string): { ownerName: string; memberName: string } | null {
+  const trimmed = (name || '').trim()
+  if (!trimmed) return null
+  const segs = trimmed.split(/[.。．]/).map(s => s.trim()).filter(Boolean)
+  if (segs.length < 2) return null
+  const memberName = segs[segs.length - 1]
+  const ownerName = segs.slice(0, segs.length - 1).join('.')
+  if (!ownerName || !memberName) return null
+  return { ownerName, memberName }
+}
+
+function collectProjectWindowControlTypeMap(project: ProjectInfo, editorFiles?: Map<string, string>): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const f of project.files) {
+    if (f.type !== 'EFW' && !f.fileName.toLowerCase().endsWith('.efw')) continue
+    const efwPath = join(project.projectDir, f.fileName)
+    const editorContent = editorFiles?.get(f.fileName)
+    const controls = editorContent ? (() => {
+      try {
+        const data = JSON.parse(editorContent)
+        return Array.isArray(data.controls) ? data.controls : []
+      } catch {
+        return []
+      }
+    })() : parseWindowFile(efwPath).controls
+
+    for (const ctrl of controls) {
+      const name = typeof ctrl?.name === 'string' ? ctrl.name.trim() : ''
+      const type = typeof ctrl?.type === 'string' ? ctrl.type.trim() : ''
+      if (!name || !type) continue
+      map.set(name, type)
+    }
+  }
+  return map
+}
+
+function listResolvedCommands(): Array<LibCommand & { libraryName: string; libraryFileName: string }> {
+  return libraryManager.getAllCommands().filter(c => !c.isHidden)
+}
+
+function resolveCommandFromCall(
+  call: { name: string; args: string[]; ownerName?: string } | null,
+  commandMap: Map<string, LibCommand & { libraryName: string; libraryFileName: string }>,
+  allCommands: Array<LibCommand & { libraryName: string; libraryFileName: string }>,
+  controlTypeMap?: Map<string, string>,
+): (LibCommand & { libraryName: string; libraryFileName: string }) | undefined {
+  if (!call?.name) return undefined
+
+  const direct = commandMap.get(call.name)
+  if (direct && !call.ownerName) return direct
+  if (direct && !direct.isMember) return direct
+
+  const memberCandidates = allCommands.filter(cmd => cmd.isMember && cmd.name === call.name)
+  if (memberCandidates.length === 0) return direct
+  if (!call.ownerName) return memberCandidates.length === 1 ? memberCandidates[0] : direct
+
+  const ownerType = controlTypeMap?.get(call.ownerName)
+  if (ownerType) {
+    const ownerNorm = normalizeMemberTypeName(ownerType)
+    const matched = memberCandidates.filter(cmd => {
+      const cmdOwner = normalizeMemberTypeName(cmd.ownerTypeName || '')
+      if (!cmdOwner) return false
+      if (cmdOwner === ownerNorm) return true
+      const cmdOwnerEn = normalizeMemberTypeName((cmd as { ownerTypeEnglishName?: string }).ownerTypeEnglishName || '')
+      return !!cmdOwnerEn && cmdOwnerEn === ownerNorm
+    })
+    if (matched.length === 1) return matched[0]
+    if (matched.length > 1) return matched[0]
+  }
+
+  return memberCandidates[0]
+}
+
 function collectUsedLibraryFileNames(project: ProjectInfo, editorFiles?: Map<string, string>): Set<string> {
   const used = new Set<string>()
   const commandMap = buildCommandMap()
+  const allCommands = listResolvedCommands()
+  const controlTypeMap = collectProjectWindowControlTypeMap(project, editorFiles)
 
   // 1) 分析源代码中的命令调用，映射到支持库
   for (const f of project.files) {
@@ -1229,16 +1551,15 @@ function collectUsedLibraryFileNames(project: ProjectInfo, editorFiles?: Map<str
       if (assignMatch) {
         const rhsCall = parseCommandCall(assignMatch[1].trim())
         if (rhsCall?.name) {
-          const rhsResolved = commandMap.get(rhsCall.name)
+          const rhsResolved = resolveCommandFromCall(rhsCall, commandMap, allCommands, controlTypeMap)
           if (rhsResolved?.libraryFileName) used.add(rhsResolved.libraryFileName)
         }
       }
 
       const callableLine = line.startsWith('.') ? line.substring(1).trim() : line
       if (!callableLine) continue
-      const cmdName = extractCommandName(callableLine)
-      if (!cmdName) continue
-      const resolved = commandMap.get(cmdName)
+      const call = parseCommandCall(callableLine)
+      const resolved = resolveCommandFromCall(call, commandMap, allCommands, controlTypeMap)
       if (resolved?.libraryFileName) used.add(resolved.libraryFileName)
     }
   }
@@ -1282,12 +1603,15 @@ function collectUsedLibraryFileNames(project: ProjectInfo, editorFiles?: Map<str
 function collectGenericFallbackLibraryFileNames(project: ProjectInfo, editorFiles?: Map<string, string>): Set<string> {
   const used = new Set<string>()
   const commandMap = buildCommandMap()
+  const allCommands = listResolvedCommands()
+  const controlTypeMap = collectProjectWindowControlTypeMap(project, editorFiles)
   const protocols = loadCompileProtocols()
 
-  const markIfGenericFallback = (call: { name: string; args: string[] } | null): void => {
+  const markIfGenericFallback = (call: { name: string; args: string[]; ownerName?: string } | null): void => {
     if (!call?.name) return
-    const resolved = commandMap.get(call.name)
+    const resolved = resolveCommandFromCall(call, commandMap, allCommands, controlTypeMap)
     if (!resolved?.libraryFileName) return
+    if (resolved.commandIndex < 0) return
     const protocolCode = resolveCommandByProtocol(
       protocols.commands,
       resolved.libraryFileName,
@@ -1296,8 +1620,8 @@ function collectGenericFallbackLibraryFileNames(project: ProjectInfo, editorFile
       call.args || [],
     )
     if (protocolCode) return
-    if (COMMAND_CODE_GENERATORS[resolved.name]) return
-    if (COMMAND_EXPR_GENERATORS[resolved.name]) return
+    if (shouldUseNameBasedCommandGenerator(resolved) && COMMAND_CODE_GENERATORS[resolved.name]) return
+    if (shouldUseNameBasedCommandGenerator(resolved) && COMMAND_EXPR_GENERATORS[resolved.name]) return
     used.add(resolved.libraryFileName)
   }
 
@@ -1350,6 +1674,8 @@ function collectCommandSourceLocationsByLibrary(project: ProjectInfo, editorFile
   const byLib = new Map<string, CommandSourceLocation[]>()
   const seen = new Set<string>()
   const commandMap = buildCommandMap()
+  const allCommands = listResolvedCommands()
+  const controlTypeMap = collectProjectWindowControlTypeMap(project, editorFiles)
 
   const addLocation = (libFileName: string, fileName: string, lineNo: number, commandName: string): void => {
     const key = `${libFileName}|${fileName}|${lineNo}|${commandName}`
@@ -1359,9 +1685,9 @@ function collectCommandSourceLocationsByLibrary(project: ProjectInfo, editorFile
     byLib.get(libFileName)!.push({ fileName, lineNo, commandName })
   }
 
-  const markCall = (fileName: string, lineNo: number, call: { name: string; args: string[] } | null): void => {
+  const markCall = (fileName: string, lineNo: number, call: { name: string; args: string[]; ownerName?: string } | null): void => {
     if (!call?.name) return
-    const resolved = commandMap.get(call.name)
+    const resolved = resolveCommandFromCall(call, commandMap, allCommands, controlTypeMap)
     if (!resolved?.libraryFileName) return
     addLocation(resolved.libraryFileName, fileName, lineNo, resolved.name)
   }
@@ -1418,6 +1744,11 @@ function buildCommandMap(): Map<string, LibCommand & { libraryName: string; libr
 
   for (const cmd of allCommands) {
     if (cmd.isHidden) continue
+    if (cmd.isMember) {
+      const owner = normalizeMemberTypeName(cmd.ownerTypeName || '')
+      if (owner) map.set(`@member:${owner}.${cmd.name}`, cmd)
+      continue
+    }
     // 同名命令后加载的覆盖先加载的（与自动补全行为一致）
     map.set(cmd.name, cmd)
   }
@@ -1681,7 +2012,6 @@ function collectProjectSubprogramNames(project: ProjectInfo, editorFiles?: Map<s
 function validateProjectCommandSignatures(project: ProjectInfo, editorFiles?: Map<string, string>): string[] {
   const errors: string[] = []
   const commandMap = buildCommandSignatureMap(collectProjectDllCommands(project, editorFiles))
-  const subprogramNames = collectProjectSubprogramNames(project, editorFiles)
 
   const validateOne = (fileName: string, lineNo: number, call: { name: string; args: string[] } | null): void => {
     if (!call?.name) return
@@ -1701,11 +2031,7 @@ function validateProjectCommandSignatures(project: ProjectInfo, editorFiles?: Ma
       return
     }
 
-    // 当前阶段先让 ycmd 命令可见并参与签名校验；平台实现注入将在下一阶段接入。
-    if (command.source === 'ycmd' && !subprogramNames.has(call.name)) {
-      const detail = command.manifestPath ? `（清单: ${command.manifestPath}）` : ''
-      errors.push(`错误: ${fileName}:${lineNo} 命令「${command.name}」来自 ycmd，当前编译后端尚未接入平台实现注入${detail}`)
-    }
+    // ycmd 命令已接入静态库桥接链路，此处仅做参数数量校验，不再阻断编译。
   }
 
   for (const f of project.files) {
@@ -1797,10 +2123,10 @@ function isTextExpression(expr: string): boolean {
   return /^L"(?:[^"\\]|\\.)*"$/.test(trimmed)
     || /^yc_get_control_text\(/.test(trimmed)
     || /^yc_text_concat\(/.test(trimmed)
-    || /^yc_fs_get_current_dir\(/.test(trimmed)
-    || /^yc_fs_get_disk_label\(/.test(trimmed)
-    || /^yc_fs_get_temp_file_name\(/.test(trimmed)
-    || /^yc_fs_dir\(/.test(trimmed)
+    || /^krnln_fs_get_current_dir\(/.test(trimmed)
+    || /^krnln_fs_get_disk_label\(/.test(trimmed)
+    || /^krnln_fs_get_temp_file_name\(/.test(trimmed)
+    || /^krnln_fs_dir\(/.test(trimmed)
 }
 
 function findTopLevelComparison(expr: string): { left: string; operator: string; right: string } | null {
@@ -1952,11 +2278,27 @@ function translateExpressionToC(expr: string, commandMap?: Map<string, ResolvedC
   if (commandMap) {
     const call = parseCommandCall(trimmed)
     if (call && call.name) {
-      const resolved = commandMap.get(call.name)
+      const resolved = resolveCommandFromCall(call, commandMap, listResolvedCommands(), activeControlTypeMap)
       if (resolved) {
-        const exprGenerator = COMMAND_EXPR_GENERATORS[resolved.name]
-        if (exprGenerator) return exprGenerator(call.args || [], commandMap, directCallables)
-        return generateYcGenericCommandExpr(resolved, call.args || [])
+        const normalizedArgs = (resolved.isMember && call.ownerName)
+          ? [`yc_get_control_hwnd_by_name(L"${escapeCString(call.ownerName)}")`, ...(call.args || [])]
+          : (call.args || [])
+        const protocols = loadCompileProtocols()
+        const protocolExpr = resolveCommandByProtocol(
+          protocols.commands,
+          resolved.libraryFileName,
+          resolved.name,
+          resolved.englishName,
+          normalizedArgs,
+          commandMap,
+          directCallables,
+        )
+        if (protocolExpr) return protocolExpr
+        if (shouldUseNameBasedCommandGenerator(resolved)) {
+          const exprGenerator = COMMAND_EXPR_GENERATORS[resolved.name]
+          if (exprGenerator) return exprGenerator(normalizedArgs, commandMap, directCallables)
+        }
+        return generateYcGenericCommandExpr(resolved, normalizedArgs)
       }
       if (directCallables?.has(call.name)) {
         return `${call.name}(${(call.args || []).map(arg => translateExpressionToC(arg, commandMap, directCallables)).join(', ')})`
@@ -2034,8 +2376,8 @@ function extractCommandName(line: string): string {
   return line.substring(0, end)
 }
 
-// 解析命令调用行，提取名称和参数
-function parseCommandCall(line: string): { name: string; args: string[] } | null {
+// 解析命令调用行，提取名称和参数（支持 对象.成员命令(...)）
+function parseCommandCall(line: string): { name: string; args: string[]; ownerName?: string } | null {
   const trimmed = line.trim()
   // 查找第一个括号（中文或英文）
   let openIdx = -1
@@ -2049,11 +2391,15 @@ function parseCommandCall(line: string): { name: string; args: string[] } | null
 
   if (openIdx < 0) {
     // 没有括号 - 无参数的命令调用
+    const memberCall = parseMemberCallName(trimmed)
+    if (memberCall) return { name: memberCall.memberName, args: [], ownerName: memberCall.ownerName }
     return { name: trimmed, args: [] }
   }
 
-  const name = trimmed.substring(0, openIdx).trim()
-  if (!name) return null
+  const rawName = trimmed.substring(0, openIdx).trim()
+  if (!rawName) return null
+  const memberCall = parseMemberCallName(rawName)
+  const name = memberCall ? memberCall.memberName : rawName
 
   // 查找匹配的右括号
   let depth = 1
@@ -2074,7 +2420,7 @@ function parseCommandCall(line: string): { name: string; args: string[] } | null
 
   const argsStr = trimmed.substring(openIdx + 1, closeIdx)
   const args = splitArguments(argsStr)
-  return { name, args }
+  return { name, args, ownerName: memberCall?.ownerName }
 }
 
 // 分割参数列表（处理嵌套括号和字符串字面量）
@@ -2260,6 +2606,28 @@ function generateYcGenericCommandAssign(cmd: LibCommand & { libraryName: string;
 type CommandCodeGenerator = (args: string[], commandMap?: Map<string, ResolvedCommand>, directCallables?: DirectCallableNames) => string
 type CommandExprGenerator = (args: string[], commandMap?: Map<string, ResolvedCommand>, directCallables?: DirectCallableNames) => string
 
+function shouldUseNameBasedCommandGenerator(cmd: { libraryFileName?: string; libraryName?: string; name?: string; englishName?: string }): boolean {
+  const lib = normalizeKey(cmd.libraryFileName || cmd.libraryName || '')
+  // Name-based hardcoded generators are only allowed for core library compatibility.
+  // Third-party libraries should compile from protocol/generic dispatch without touching compiler.ts.
+  if (lib !== 'krnln') return false
+
+  // If protocol already provides a binding, prefer protocol and skip hardcoded generators.
+  if (cmd.name || cmd.englishName) {
+    const protocols = loadCompileProtocols()
+    const byProtocol = resolveCommandByProtocol(
+      protocols.commands,
+      cmd.libraryFileName || cmd.libraryName || '',
+      cmd.name || '',
+      cmd.englishName || '',
+      [],
+    )
+    if (byProtocol) return false
+  }
+
+  return true
+}
+
 function escapeCWideString(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
@@ -2284,6 +2652,7 @@ function buildDebugTextLine(args: string[], commandMap?: Map<string, ResolvedCom
 const COMMAND_EXPR_GENERATORS: Record<string, CommandExprGenerator> = {
   '取本机名': (_args) => 'yc_get_local_hostname()',
   '取主机名': (_args) => 'yc_get_local_hostname()',
+
   '等于': (args, commandMap, directCallables) => buildComparisonExpression(args[0] || '0', args[1] || '0', '==', commandMap, directCallables),
   '不等于': (args, commandMap, directCallables) => buildComparisonExpression(args[0] || '0', args[1] || '0', '!=', commandMap, directCallables),
   '小于': (args, commandMap, directCallables) => buildComparisonExpression(args[0] || '0', args[1] || '0', '<', commandMap, directCallables),
@@ -2295,43 +2664,7 @@ const COMMAND_EXPR_GENERATORS: Record<string, CommandExprGenerator> = {
   '或者': (args, commandMap, directCallables) => buildLogicChainExpression(args, '||', commandMap, directCallables),
   '取反': (args, commandMap, directCallables) => `(!(${translateExpressionToC(args[0] || '0', commandMap, directCallables)}))`,
   '是否为调试版': () => '(YC_DEBUG_BUILD ? 1 : 0)',
-  '取磁盘总空间': (args, commandMap, directCallables) => `yc_fs_disk_total_kb(${formatOptionalTextArgForC(args[0], commandMap, directCallables)})`,
-  '取磁盘剩余空间': (args, commandMap, directCallables) => `yc_fs_disk_free_kb(${formatOptionalTextArgForC(args[0], commandMap, directCallables)})`,
-  '取磁盘卷标': (args, commandMap, directCallables) => `yc_fs_get_disk_label(${formatOptionalTextArgForC(args[0], commandMap, directCallables)})`,
-  '置磁盘卷标': (args, commandMap, directCallables) => `yc_fs_set_disk_label(${formatOptionalTextArgForC(args[0], commandMap, directCallables)}, ${formatArgForC(args[1] || '""', commandMap, directCallables)})`,
-  '改变驱动器': (args, commandMap, directCallables) => `yc_fs_change_drive(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '改变目录': (args, commandMap, directCallables) => `yc_fs_change_dir(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '取当前目录': () => 'yc_fs_get_current_dir()',
-  '创建目录': (args, commandMap, directCallables) => `yc_fs_create_dir(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '删除目录': (args, commandMap, directCallables) => `yc_fs_remove_dir_all(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '复制文件': (args, commandMap, directCallables) => `yc_fs_copy_file(${formatArgForC(args[0] || '""', commandMap, directCallables)}, ${formatArgForC(args[1] || '""', commandMap, directCallables)})`,
-  '移动文件': (args, commandMap, directCallables) => `yc_fs_move_file(${formatArgForC(args[0] || '""', commandMap, directCallables)}, ${formatArgForC(args[1] || '""', commandMap, directCallables)})`,
-  '删除文件': (args, commandMap, directCallables) => `yc_fs_delete_file(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '文件更名': (args, commandMap, directCallables) => `yc_fs_rename_path(${formatArgForC(args[0] || '""', commandMap, directCallables)}, ${formatArgForC(args[1] || '""', commandMap, directCallables)})`,
-  '文件是否存在': (args, commandMap, directCallables) => `yc_fs_file_exists(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '寻找文件': (args, commandMap, directCallables) => `yc_fs_dir(${formatOptionalTextArgForC(args[0], commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)})`,
-  '取文件尺寸': (args, commandMap, directCallables) => `yc_fs_file_len(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '取文件属性': (args, commandMap, directCallables) => `yc_fs_get_attr(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '置文件属性': (args, commandMap, directCallables) => `yc_fs_set_attr(${formatArgForC(args[0] || '""', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)})`,
-  '取临时文件名': (args, commandMap, directCallables) => `yc_fs_get_temp_file_name(${formatOptionalTextArgForC(args[0], commandMap, directCallables)})`,
-  '读入文件': (args, commandMap, directCallables) => `yc_fs_read_file_bin(${formatArgForC(args[0] || '""', commandMap, directCallables)})`,
-  '写到文件': (args, commandMap, directCallables) => `yc_fs_write_file_bins(${formatArgForC(args[0] || '""', commandMap, directCallables)}, std::vector<YC_BIN>{${args.slice(1).map(arg => formatArgForC(arg, commandMap, directCallables)).join(', ')}})`,
-  '取字节集长度': (args, commandMap, directCallables) => `yc_bin_len(${formatArgForC(args[0] || '0', commandMap, directCallables)})`,
-  '到字节集': (args, commandMap, directCallables) => `yc_to_bin(${formatArgForC(args[0] || '0', commandMap, directCallables)})`,
-  '取字节集左边': (args, commandMap, directCallables) => `yc_bin_left(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)})`,
-  '取字节集右边': (args, commandMap, directCallables) => `yc_bin_right(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)})`,
-  '取字节集中间': (args, commandMap, directCallables) => `yc_bin_mid(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '1', commandMap, directCallables)}, ${formatArgForC(args[2] || '0', commandMap, directCallables)})`,
-  '寻找字节集': (args, commandMap, directCallables) => `yc_bin_find(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)}, ${formatArgForC(args[2] || '1', commandMap, directCallables)})`,
-  '倒找字节集': (args, commandMap, directCallables) => `yc_bin_rfind(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)}, ${formatArgForC(args[2] || '0', commandMap, directCallables)})`,
-  '字节集替换': (args, commandMap, directCallables) => `yc_bin_replace(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '1', commandMap, directCallables)}, ${formatArgForC(args[2] || '0', commandMap, directCallables)}, ${args[3] ? formatArgForC(args[3], commandMap, directCallables) : 'YC_BIN()'})`,
-  '子字节集替换': (args, commandMap, directCallables) => `yc_bin_replace_sub(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)}, ${args[2] ? formatArgForC(args[2], commandMap, directCallables) : 'YC_BIN()'}, ${formatArgForC(args[3] || '1', commandMap, directCallables)}, ${formatArgForC(args[4] || '0', commandMap, directCallables)})`,
-  '取空白字节集': (args, commandMap, directCallables) => `yc_bin_space(${formatArgForC(args[0] || '0', commandMap, directCallables)})`,
-  '取重复字节集': (args, commandMap, directCallables) => `yc_bin_repeat(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)})`,
-  '指针到字节集': (args, commandMap, directCallables) => `yc_bin_from_address((long long)(${formatArgForC(args[0] || '0', commandMap, directCallables)}), ${formatArgForC(args[1] || '0', commandMap, directCallables)})`,
-  '指针到整数': (args, commandMap, directCallables) => `yc_ptr_to_int((long long)(${formatArgForC(args[0] || '0', commandMap, directCallables)}))`,
-  '指针到小数': (args, commandMap, directCallables) => `yc_ptr_to_float((long long)(${formatArgForC(args[0] || '0', commandMap, directCallables)}))`,
-  '指针到双精度小数': (args, commandMap, directCallables) => `yc_ptr_to_double((long long)(${formatArgForC(args[0] || '0', commandMap, directCallables)}))`,
-  '取字节集内整数': (args, commandMap, directCallables) => `yc_bin_get_int(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)}, ${formatArgForC(args[2] || '0', commandMap, directCallables)})`,
+
 }
 
 const COMMAND_CODE_GENERATORS: Record<string, CommandCodeGenerator> = {
@@ -2385,44 +2718,6 @@ const COMMAND_CODE_GENERATORS: Record<string, CommandCodeGenerator> = {
   '并且': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['并且'](args, commandMap, directCallables)};`,
   '或者': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['或者'](args, commandMap, directCallables)};`,
   '取反': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取反'](args, commandMap, directCallables)};`,
-  '取磁盘总空间': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取磁盘总空间'](args, commandMap, directCallables)};`,
-  '取磁盘剩余空间': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取磁盘剩余空间'](args, commandMap, directCallables)};`,
-  '取磁盘卷标': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取磁盘卷标'](args, commandMap, directCallables)};`,
-  '置磁盘卷标': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['置磁盘卷标'](args, commandMap, directCallables)};`,
-  '改变驱动器': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['改变驱动器'](args, commandMap, directCallables)};`,
-  '改变目录': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['改变目录'](args, commandMap, directCallables)};`,
-  '取当前目录': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取当前目录'](args, commandMap, directCallables)};`,
-  '创建目录': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['创建目录'](args, commandMap, directCallables)};`,
-  '删除目录': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['删除目录'](args, commandMap, directCallables)};`,
-  '复制文件': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['复制文件'](args, commandMap, directCallables)};`,
-  '移动文件': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['移动文件'](args, commandMap, directCallables)};`,
-  '删除文件': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['删除文件'](args, commandMap, directCallables)};`,
-  '文件更名': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['文件更名'](args, commandMap, directCallables)};`,
-  '文件是否存在': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['文件是否存在'](args, commandMap, directCallables)};`,
-  '寻找文件': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['寻找文件'](args, commandMap, directCallables)};`,
-  '取文件尺寸': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取文件尺寸'](args, commandMap, directCallables)};`,
-  '取文件属性': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取文件属性'](args, commandMap, directCallables)};`,
-  '置文件属性': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['置文件属性'](args, commandMap, directCallables)};`,
-  '取临时文件名': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取临时文件名'](args, commandMap, directCallables)};`,
-  '读入文件': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['读入文件'](args, commandMap, directCallables)};`,
-  '写到文件': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['写到文件'](args, commandMap, directCallables)};`,
-  '取字节集长度': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取字节集长度'](args, commandMap, directCallables)};`,
-  '到字节集': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['到字节集'](args, commandMap, directCallables)};`,
-  '取字节集左边': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取字节集左边'](args, commandMap, directCallables)};`,
-  '取字节集右边': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取字节集右边'](args, commandMap, directCallables)};`,
-  '取字节集中间': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取字节集中间'](args, commandMap, directCallables)};`,
-  '寻找字节集': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['寻找字节集'](args, commandMap, directCallables)};`,
-  '倒找字节集': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['倒找字节集'](args, commandMap, directCallables)};`,
-  '字节集替换': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['字节集替换'](args, commandMap, directCallables)};`,
-  '子字节集替换': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['子字节集替换'](args, commandMap, directCallables)};`,
-  '取空白字节集': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取空白字节集'](args, commandMap, directCallables)};`,
-  '取重复字节集': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取重复字节集'](args, commandMap, directCallables)};`,
-  '指针到字节集': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['指针到字节集'](args, commandMap, directCallables)};`,
-  '指针到整数': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['指针到整数'](args, commandMap, directCallables)};`,
-  '指针到小数': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['指针到小数'](args, commandMap, directCallables)};`,
-  '指针到双精度小数': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['指针到双精度小数'](args, commandMap, directCallables)};`,
-  '取字节集内整数': (args, commandMap, directCallables) => `(void)${COMMAND_EXPR_GENERATORS['取字节集内整数'](args, commandMap, directCallables)};`,
-  '置字节集内整数': (args, commandMap, directCallables) => `yc_bin_set_int(${formatArgForC(args[0] || '0', commandMap, directCallables)}, ${formatArgForC(args[1] || '0', commandMap, directCallables)}, ${formatArgForC(args[2] || '0', commandMap, directCallables)}, ${formatArgForC(args[3] || '0', commandMap, directCallables)});`,
 }
 
 // 为支持库命令生成C代码
@@ -2434,15 +2729,22 @@ function generateCCodeForCommand(cmd: ResolvedCommand, args: string[], commandMa
     cmd.name,
     cmd.englishName,
     args,
+    commandMap,
+    directCallables,
   )
   if (protocolCode) {
-    return protocolCode
+    const trimmed = protocolCode.trim()
+    if (!trimmed) return ';'
+    if (trimmed.endsWith(';') || trimmed.endsWith('}')) return protocolCode
+    return `${protocolCode};`
   }
 
   // 查找已注册的代码生成器
-  const generator = COMMAND_CODE_GENERATORS[cmd.name]
-  if (generator) {
-    return generator(args, commandMap, directCallables)
+  if (shouldUseNameBasedCommandGenerator(cmd)) {
+    const generator = COMMAND_CODE_GENERATORS[cmd.name]
+    if (generator) {
+      return generator(args, commandMap, directCallables)
+    }
   }
 
   // 通用回退：按“库名 + 命令索引”走支持库命令分发表。
@@ -2598,6 +2900,7 @@ function generateProjectDllWrapperCode(projectDllCommands: ProjectDllCommandDef[
 function transpileEycContent(eycContent: string, fileName: string, projectGlobals: GlobalVarDef[] = [], projectConstants: ConstantDef[] = [], projectResources: ProjectResourceEntry[] = [], libraryConstants: LibraryConstantDef[] = [], projectSubprograms: SubprogramDef[] = [], projectDataTypes: ProjectDataTypeDef[] = [], projectDllCommands: ProjectDllCommandDef[] = [], debugBuild = false, breakpoints: Record<string, number[]> = {}, targetPlatform: TargetPlatform = 'windows'): string {
   // 从已加载的支持库构建命令查找表
   const commandMap = buildCommandMap()
+  const allCommands = listResolvedCommands()
   const isClassModuleSource = /\.ecc$/i.test(fileName)
   const directCallables: DirectCallableNames = new Set(projectSubprograms.map(sub => sub.name))
   for (const dllCmd of projectDllCommands) directCallables.add(dllCmd.name)
@@ -2607,6 +2910,8 @@ function transpileEycContent(eycContent: string, fileName: string, projectGlobal
   result += '#include <windows.h>\n#include <stdio.h>\n#include <stdint.h>\n#include <stdlib.h>\n#include <direct.h>\n#include <wchar.h>\n#include <wctype.h>\n#include <string.h>\n#include <filesystem>\n#include <vector>\n#include <string>\n#include <algorithm>\n#include <fstream>\n\n'
   result += 'namespace ycfs = std::filesystem;\n\n'
   result += 'typedef std::vector<unsigned char> YC_BIN;\n\n'
+  result += 'typedef struct YC_BIN_VIEW { const unsigned char* data; int size; } YC_BIN_VIEW;\n'
+  result += 'static YC_BIN_VIEW yc_make_bin_view(const YC_BIN& value) { YC_BIN_VIEW view; view.data = value.empty() ? NULL : value.data(); view.size = (int)value.size(); return view; }\n\n'
   result += `#define YC_DEBUG_BUILD ${debugBuild ? 1 : 0}\n\n`
   result += '#define YC_SDT_BYTE 0x80000101u\n'
   result += '#define YC_SDT_SHORT 0x80000201u\n'
@@ -2632,9 +2937,95 @@ function transpileEycContent(eycContent: string, fileName: string, projectGlobal
   result += '} YC_MDATA_INF;\n\n'
   result += 'extern "C" void yc_invoke_support_cmd(const char* libName, int cmdIndex, YC_MDATA_INF* pRetData, int argCount, YC_MDATA_INF* pArgs);\n'
   result += 'extern void yc_set_control_text(const wchar_t* ctrlName, const wchar_t* text);\n'
+  result += 'extern void yc_set_control_prop_num(const wchar_t* ctrlName, int propIndex, intptr_t value);\n'
+  result += 'extern void yc_set_control_prop_bin(const wchar_t* ctrlName, int propIndex, const void* value);\n'
   result += 'extern const wchar_t* yc_get_control_text(const wchar_t* ctrlName);\n'
+  result += 'extern "C" const wchar_t* krnln_control_get_text(long long controlHandle);\n'
+  result += 'extern "C" int krnln_control_set_text(long long controlHandle, const wchar_t* text);\n'
+  result += 'extern "C" int krnln_control_set_prop_num(long long controlHandle, int propIndex, intptr_t value);\n'
+  result += 'extern "C" int krnln_control_set_prop_bin(long long controlHandle, int propIndex, const void* value);\n'
+  result += 'extern long long yc_get_control_hwnd_by_name(const wchar_t* ctrlName);\n'
   result += 'extern int yc_text_compare(const wchar_t* left, const wchar_t* right);\n'
   result += 'extern int yc_text_starts_with(const wchar_t* text, const wchar_t* prefix);\n\n'
+  result += 'extern "C" long long krnln_drawpanel_get_hdc(long long panelHandle);\n'
+  result += 'extern "C" int krnln_drawpanel_clear(long long panelHandle, int left, int top, int width, int height);\n'
+  result += 'extern "C" int krnln_drawpanel_get_pixel(long long panelHandle, int x, int y);\n'
+  result += 'extern "C" int krnln_drawpanel_set_pixel(long long panelHandle, int x, int y, int color);\n'
+  result += 'extern "C" int krnln_drawpanel_line(long long panelHandle, int x1, int y1, int x2, int y2, int color);\n\n'
+  result += 'extern "C" int krnln_drawpanel_set_pic(long long panelHandle, const unsigned char* data, int len);\n\n'
+  result += 'extern "C" int krnln_drawpanel_draw_rect(long long panelHandle, int left, int top, int right, int bottom);\n'
+  result += 'extern "C" int krnln_drawpanel_fill_rect(long long panelHandle, int left, int top, int right, int bottom);\n'
+  result += 'extern "C" int krnln_drawpanel_draw_ellipse(long long panelHandle, int left, int top, int right, int bottom);\n'
+  result += 'extern "C" int krnln_drawpanel_draw_round_rect(long long panelHandle, int left, int top, int right, int bottom, int arcWidth, int arcHeight);\n'
+  result += 'extern "C" int krnln_drawpanel_invert_rect(long long panelHandle, int left, int top, int right, int bottom);\n\n'
+  result += 'extern "C" int krnln_drawpanel_arc(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);\n'
+  result += 'extern "C" int krnln_drawpanel_chord(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);\n'
+  result += 'extern "C" int krnln_drawpanel_pie(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);\n'
+  result += 'extern "C" int krnln_drawpanel_unit_cnv(long long panelHandle, int value, int valueType);\n'
+  result += 'extern "C" int krnln_drawpanel_set_write_pos(long long panelHandle, int x, int y);\n'
+  result += 'extern "C" int krnln_drawpanel_write(long long panelHandle, const wchar_t* text);\n'
+  result += 'extern "C" int krnln_drawpanel_print(long long panelHandle, const wchar_t* text);\n'
+  result += 'extern "C" int krnln_drawpanel_say(long long panelHandle, int x, int y, const wchar_t* text);\n'
+  result += 'extern "C" int krnln_drawpanel_get_text_width(long long panelHandle, const wchar_t* text);\n'
+  result += 'extern "C" int krnln_drawpanel_get_text_height(long long panelHandle, const wchar_t* text);\n\n'
+  result += 'extern "C" int krnln_drawpanel_draw_jb_rect(long long panelHandle, int left, int top, int width, int height, int direction, int color1, int color2);\n'
+  result += 'extern "C" int krnln_drawpanel_copy(long long srcPanelHandle, int left, int top, int width, int height, long long dstPanelHandle, int dstLeft, int dstTop, int mode);\n'
+  result += 'extern "C" int krnln_drawpanel_draw_pic(long long panelHandle, long long picHandle, int x, int y, int width, int height, int mode);\n'
+  result += 'extern "C" int krnln_drawpanel_get_pic_width(long long panelHandle, long long picHandle);\n'
+  result += 'extern "C" int krnln_drawpanel_get_pic_height(long long panelHandle, long long picHandle);\n\n'
+  result += 'long long krnln_fs_disk_total_kb(const wchar_t* driveText);\n'
+  result += 'long long krnln_fs_disk_free_kb(const wchar_t* driveText);\n'
+  result += 'wchar_t* krnln_fs_get_disk_label(const wchar_t* driveText);\n'
+  result += 'int krnln_fs_set_disk_label(const wchar_t* driveText, const wchar_t* label);\n'
+  result += 'int krnln_fs_change_drive(const wchar_t* driveText);\n'
+  result += 'int krnln_fs_change_dir(const wchar_t* path);\n'
+  result += 'wchar_t* krnln_fs_get_current_dir(void);\n'
+  result += 'int krnln_fs_create_dir(const wchar_t* path);\n'
+  result += 'int krnln_fs_remove_dir_all(const wchar_t* path);\n'
+  result += 'int krnln_fs_copy_file(const wchar_t* src, const wchar_t* dst);\n'
+  result += 'int krnln_fs_move_file(const wchar_t* src, const wchar_t* dst);\n'
+  result += 'int krnln_fs_delete_file(const wchar_t* path);\n'
+  result += 'int krnln_fs_rename_path(const wchar_t* src, const wchar_t* dst);\n'
+  result += 'int krnln_fs_file_exists(const wchar_t* path);\n'
+  result += 'wchar_t* krnln_fs_dir(const wchar_t* pattern, int attr);\n'
+  result += 'int krnln_fs_file_len(const wchar_t* path);\n'
+  result += 'int krnln_fs_get_attr(const wchar_t* path);\n'
+  result += 'int krnln_fs_set_attr(const wchar_t* path, int attr);\n'
+  result += 'wchar_t* krnln_fs_get_temp_file_name(const wchar_t* dir);\n'
+  result += 'YC_BIN krnln_fs_read_file_bin(const wchar_t* path);\n'
+  result += 'int krnln_fs_write_file_bins(const wchar_t* path, const std::vector<YC_BIN>& parts);\n'
+  result += 'YC_BIN krnln_to_bin(const YC_BIN& value);\n'
+  result += 'YC_BIN krnln_to_bin(const wchar_t* text);\n'
+  result += 'YC_BIN krnln_to_bin(wchar_t* text);\n'
+  result += 'YC_BIN krnln_to_bin(const char* text);\n'
+  result += 'YC_BIN krnln_to_bin(char* text);\n'
+  result += 'YC_BIN krnln_to_bin(bool value);\n'
+  result += 'YC_BIN krnln_to_bin(short value);\n'
+  result += 'YC_BIN krnln_to_bin(unsigned short value);\n'
+  result += 'YC_BIN krnln_to_bin(int value);\n'
+  result += 'YC_BIN krnln_to_bin(unsigned int value);\n'
+  result += 'YC_BIN krnln_to_bin(long value);\n'
+  result += 'YC_BIN krnln_to_bin(unsigned long value);\n'
+  result += 'YC_BIN krnln_to_bin(long long value);\n'
+  result += 'YC_BIN krnln_to_bin(unsigned long long value);\n'
+  result += 'YC_BIN krnln_to_bin(float value);\n'
+  result += 'YC_BIN krnln_to_bin(double value);\n'
+  result += 'int krnln_bin_len(const YC_BIN& value);\n'
+  result += 'YC_BIN krnln_bin_left(const YC_BIN& value, int count);\n'
+  result += 'YC_BIN krnln_bin_right(const YC_BIN& value, int count);\n'
+  result += 'YC_BIN krnln_bin_mid(const YC_BIN& value, int startPos, int count);\n'
+  result += 'int krnln_bin_find(const YC_BIN& haystack, const YC_BIN& needle, int startPos);\n'
+  result += 'int krnln_bin_rfind(const YC_BIN& haystack, const YC_BIN& needle, int startPos);\n'
+  result += 'YC_BIN krnln_bin_replace(const YC_BIN& value, int startPos, int replaceLen, const YC_BIN& repl);\n'
+  result += 'YC_BIN krnln_bin_replace_sub(const YC_BIN& value, const YC_BIN& from, const YC_BIN& to, int startPos, int replaceCount);\n'
+  result += 'YC_BIN krnln_bin_space(int count);\n'
+  result += 'YC_BIN krnln_bin_repeat(int count, const YC_BIN& value);\n'
+  result += 'YC_BIN krnln_bin_from_address(long long ptrValue, int len);\n'
+  result += 'int krnln_ptr_to_int(long long ptrValue);\n'
+  result += 'float krnln_ptr_to_float(long long ptrValue);\n'
+  result += 'double krnln_ptr_to_double(long long ptrValue);\n'
+  result += 'int krnln_bin_get_int(const YC_BIN& value, int offset, int reverseBytes);\n'
+  result += 'int krnln_bin_set_int(YC_BIN& value, int offset, int data, int reverseBytes);\n\n'
   result += 'static wchar_t* yc_wcsdup_text(const wchar_t* s);\n'
   result += 'static wchar_t* yc_empty_text(void);\n'
   result += 'static wchar_t* yc_utf8_to_wide(const char* s);\n'
@@ -2880,344 +3271,6 @@ function transpileEycContent(eycContent: string, fileName: string, projectGlobal
   result += '    memcpy(out + leftLen, rhs, sizeof(wchar_t) * (rightLen + 1));\n'
   result += '    return out;\n'
   result += '}\n\n'
-  result += 'static size_t yc_bin_clamp_count(int count) {\n'
-  result += '    return count <= 0 ? 0u : (size_t)count;\n'
-  result += '}\n\n'
-  result += 'static size_t yc_bin_pos_to_index(int pos, size_t size) {\n'
-  result += '    if (pos <= 1) return 0u;\n'
-  result += '    return (size_t)(pos - 1) > size ? size : (size_t)(pos - 1);\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_from_ptr(const void* ptr, size_t len) {\n'
-  result += '    if (!ptr || len == 0) return YC_BIN();\n'
-  result += '    const unsigned char* p = (const unsigned char*)ptr;\n'
-  result += '    return YC_BIN(p, p + len);\n'
-  result += '}\n\n'
-  result += 'template <typename T> static YC_BIN yc_bin_from_scalar(const T& value) {\n'
-  result += '    return yc_bin_from_ptr(&value, sizeof(T));\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_to_bin(const YC_BIN& value) {\n'
-  result += '    return value;\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_to_bin(const wchar_t* text) {\n'
-  result += '    if (!text) return YC_BIN();\n'
-  result += '    return yc_bin_from_ptr(text, wcslen(text) * sizeof(wchar_t));\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_to_bin(wchar_t* text) {\n'
-  result += '    return yc_to_bin((const wchar_t*)text);\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_to_bin(const char* text) {\n'
-  result += '    if (!text) return YC_BIN();\n'
-  result += '    return yc_bin_from_ptr(text, strlen(text));\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_to_bin(char* text) {\n'
-  result += '    return yc_to_bin((const char*)text);\n'
-  result += '}\n\n'
-  result += 'template <typename T> static YC_BIN yc_to_bin(const T& value) {\n'
-  result += '    return yc_bin_from_scalar(value);\n'
-  result += '}\n\n'
-  result += 'static int yc_bin_len(const YC_BIN& value) {\n'
-  result += '    return value.size() > 2147483647u ? 2147483647 : (int)value.size();\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_left(const YC_BIN& value, int count) {\n'
-  result += '    size_t n = yc_bin_clamp_count(count);\n'
-  result += '    if (n > value.size()) n = value.size();\n'
-  result += '    return YC_BIN(value.begin(), value.begin() + n);\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_right(const YC_BIN& value, int count) {\n'
-  result += '    size_t n = yc_bin_clamp_count(count);\n'
-  result += '    if (n > value.size()) n = value.size();\n'
-  result += '    return YC_BIN(value.end() - n, value.end());\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_mid(const YC_BIN& value, int startPos, int count) {\n'
-  result += '    size_t start = yc_bin_pos_to_index(startPos, value.size());\n'
-  result += '    size_t n = yc_bin_clamp_count(count);\n'
-  result += '    if (start >= value.size() || n == 0) return YC_BIN();\n'
-  result += '    if (start + n > value.size()) n = value.size() - start;\n'
-  result += '    return YC_BIN(value.begin() + start, value.begin() + start + n);\n'
-  result += '}\n\n'
-  result += 'static int yc_bin_find(const YC_BIN& haystack, const YC_BIN& needle, int startPos) {\n'
-  result += '    size_t start = yc_bin_pos_to_index(startPos <= 0 ? 1 : startPos, haystack.size());\n'
-  result += '    if (needle.empty()) return start < haystack.size() ? (int)start + 1 : 1;\n'
-  result += '    if (start >= haystack.size() || needle.size() > haystack.size()) return -1;\n'
-  result += '    auto it = std::search(haystack.begin() + start, haystack.end(), needle.begin(), needle.end());\n'
-  result += '    return it == haystack.end() ? -1 : (int)(it - haystack.begin()) + 1;\n'
-  result += '}\n\n'
-  result += 'static int yc_bin_rfind(const YC_BIN& haystack, const YC_BIN& needle, int startPos) {\n'
-  result += '    if (needle.empty()) return haystack.empty() ? 1 : (startPos > 0 ? startPos : (int)haystack.size());\n'
-  result += '    if (needle.size() > haystack.size()) return -1;\n'
-  result += '    size_t limit = haystack.size() - needle.size();\n'
-  result += '    if (startPos > 0) {\n'
-  result += '      size_t requested = yc_bin_pos_to_index(startPos, haystack.size());\n'
-  result += '      if (requested < limit) limit = requested;\n'
-  result += '    }\n'
-  result += '    for (size_t i = limit + 1; i-- > 0;) {\n'
-  result += '      if (memcmp(haystack.data() + i, needle.data(), needle.size()) == 0) return (int)i + 1;\n'
-  result += '      if (i == 0) break;\n'
-  result += '    }\n'
-  result += '    return -1;\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_replace(const YC_BIN& value, int startPos, int replaceLen, const YC_BIN& repl) {\n'
-  result += '    YC_BIN out = value;\n'
-  result += '    size_t start = yc_bin_pos_to_index(startPos, out.size());\n'
-  result += '    size_t len = yc_bin_clamp_count(replaceLen);\n'
-  result += '    if (start > out.size()) start = out.size();\n'
-  result += '    if (start + len > out.size()) len = out.size() - start;\n'
-  result += '    out.erase(out.begin() + start, out.begin() + start + len);\n'
-  result += '    out.insert(out.begin() + start, repl.begin(), repl.end());\n'
-  result += '    return out;\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_replace_sub(const YC_BIN& value, const YC_BIN& from, const YC_BIN& to, int startPos, int replaceCount) {\n'
-  result += '    YC_BIN out = value;\n'
-  result += '    if (from.empty()) return out;\n'
-  result += '    size_t pos = yc_bin_pos_to_index(startPos <= 0 ? 1 : startPos, out.size());\n'
-  result += '    int done = 0;\n'
-  result += '    while (pos <= out.size()) {\n'
-  result += '      auto it = std::search(out.begin() + pos, out.end(), from.begin(), from.end());\n'
-  result += '      if (it == out.end()) break;\n'
-  result += '      size_t idx = (size_t)(it - out.begin());\n'
-  result += '      out.erase(out.begin() + idx, out.begin() + idx + from.size());\n'
-  result += '      out.insert(out.begin() + idx, to.begin(), to.end());\n'
-  result += '      pos = idx + to.size();\n'
-  result += '      done++;\n'
-  result += '      if (replaceCount > 0 && done >= replaceCount) break;\n'
-  result += '    }\n'
-  result += '    return out;\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_space(int count) {\n'
-  result += '    return YC_BIN(yc_bin_clamp_count(count), 0);\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_repeat(int count, const YC_BIN& value) {\n'
-  result += '    YC_BIN out;\n'
-  result += '    int times = count < 0 ? 0 : count;\n'
-  result += '    if (times == 0 || value.empty()) return out;\n'
-  result += '    out.reserve((size_t)times * value.size());\n'
-  result += '    for (int i = 0; i < times; i++) out.insert(out.end(), value.begin(), value.end());\n'
-  result += '    return out;\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_bin_from_address(long long ptrValue, int len) {\n'
-  result += '    size_t n = yc_bin_clamp_count(len);\n'
-  result += '    return yc_bin_from_ptr((const void*)(intptr_t)ptrValue, n);\n'
-  result += '}\n\n'
-  result += 'static int yc_ptr_to_int(long long ptrValue) {\n'
-  result += '    const int* p = (const int*)(intptr_t)ptrValue;\n'
-  result += '    return p ? *p : 0;\n'
-  result += '}\n\n'
-  result += 'static float yc_ptr_to_float(long long ptrValue) {\n'
-  result += '    const float* p = (const float*)(intptr_t)ptrValue;\n'
-  result += '    return p ? *p : 0.0f;\n'
-  result += '}\n\n'
-  result += 'static double yc_ptr_to_double(long long ptrValue) {\n'
-  result += '    const double* p = (const double*)(intptr_t)ptrValue;\n'
-  result += '    return p ? *p : 0.0;\n'
-  result += '}\n\n'
-  result += 'static int yc_byteswap_i32(int value) {\n'
-  result += '    unsigned int v = (unsigned int)value;\n'
-  result += '    v = ((v & 0x000000FFu) << 24) | ((v & 0x0000FF00u) << 8) | ((v & 0x00FF0000u) >> 8) | ((v & 0xFF000000u) >> 24);\n'
-  result += '    return (int)v;\n'
-  result += '}\n\n'
-  result += 'static int yc_bin_get_int(const YC_BIN& value, int offset, int reverseBytes) {\n'
-  result += '    size_t pos = offset < 0 ? 0u : (size_t)offset;\n'
-  result += '    int out = 0;\n'
-  result += '    if (pos + sizeof(int) > value.size()) return 0;\n'
-  result += '    memcpy(&out, value.data() + pos, sizeof(int));\n'
-  result += '    return reverseBytes ? yc_byteswap_i32(out) : out;\n'
-  result += '}\n\n'
-  result += 'static void yc_bin_set_int(YC_BIN& value, int offset, int data, int reverseBytes) {\n'
-  result += '    size_t pos = offset < 0 ? 0u : (size_t)offset;\n'
-  result += '    int out = reverseBytes ? yc_byteswap_i32(data) : data;\n'
-  result += '    if (value.size() < pos + sizeof(int)) value.resize(pos + sizeof(int), 0);\n'
-  result += '    memcpy(value.data() + pos, &out, sizeof(int));\n'
-  result += '}\n\n'
-  result += 'static void yc_fs_build_root(const wchar_t* driveText, wchar_t outRoot[4]) {\n'
-  result += '    wchar_t drive = 0;\n'
-  result += '    if (driveText && driveText[0]) drive = (wchar_t)towupper(driveText[0]);\n'
-  result += '    if (!drive) {\n'
-  result += '        int currentDrive = _getdrive();\n'
-  result += '        if (currentDrive >= 1 && currentDrive <= 26) drive = (wchar_t)(L\'A\' + currentDrive - 1);\n'
-  result += '    }\n'
-  result += '    if (!drive) drive = L\'C\';\n'
-  result += '    outRoot[0] = drive;\n'
-  result += '    outRoot[1] = L\':\';\n'
-  result += '    outRoot[2] = L\'\\\\\';\n'
-  result += '    outRoot[3] = L\'\\0\';\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_clamp_kb(unsigned long long value) {\n'
-  result += '    return value > 2147483647ULL ? 2147483647 : (int)value;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_disk_total_kb(const wchar_t* driveText) {\n'
-  result += '    wchar_t root[4];\n'
-  result += '    ULARGE_INTEGER freeBytesAvailable, totalBytes, totalFreeBytes;\n'
-  result += '    yc_fs_build_root(driveText, root);\n'
-  result += '    if (!GetDiskFreeSpaceExW(root, &freeBytesAvailable, &totalBytes, &totalFreeBytes)) return -1;\n'
-  result += '    return yc_fs_clamp_kb(totalBytes.QuadPart / 1024ULL);\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_disk_free_kb(const wchar_t* driveText) {\n'
-  result += '    wchar_t root[4];\n'
-  result += '    ULARGE_INTEGER freeBytesAvailable, totalBytes, totalFreeBytes;\n'
-  result += '    yc_fs_build_root(driveText, root);\n'
-  result += '    if (!GetDiskFreeSpaceExW(root, &freeBytesAvailable, &totalBytes, &totalFreeBytes)) return -1;\n'
-  result += '    return yc_fs_clamp_kb(totalFreeBytes.QuadPart / 1024ULL);\n'
-  result += '}\n\n'
-  result += 'static wchar_t* yc_fs_get_disk_label(const wchar_t* driveText) {\n'
-  result += '    wchar_t root[4];\n'
-  result += '    wchar_t volumeName[MAX_PATH];\n'
-  result += '    DWORD serialNumber = 0, maxComponentLen = 0, fileSystemFlags = 0;\n'
-  result += '    wchar_t fileSystemName[MAX_PATH];\n'
-  result += '    yc_fs_build_root(driveText, root);\n'
-  result += '    if (!GetVolumeInformationW(root, volumeName, MAX_PATH, &serialNumber, &maxComponentLen, &fileSystemFlags, fileSystemName, MAX_PATH)) {\n'
-  result += '        return yc_wcsdup_text(L"");\n'
-  result += '    }\n'
-  result += '    return yc_wcsdup_text(volumeName);\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_set_disk_label(const wchar_t* driveText, const wchar_t* label) {\n'
-  result += '    wchar_t root[4];\n'
-  result += '    yc_fs_build_root(driveText, root);\n'
-  result += '    return SetVolumeLabelW(root, label ? label : L"") ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_change_drive(const wchar_t* driveText) {\n'
-  result += '    wchar_t root[4];\n'
-  result += '    if (!driveText || !driveText[0]) return 1;\n'
-  result += '    yc_fs_build_root(driveText, root);\n'
-  result += '    return SetCurrentDirectoryW(root) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_change_dir(const wchar_t* path) {\n'
-  result += '    if (!path || !path[0]) return 0;\n'
-  result += '    return _wchdir(path) == 0 ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static wchar_t* yc_fs_get_current_dir(void) {\n'
-  result += '    wchar_t* cwd = _wgetcwd(NULL, 0);\n'
-  result += '    if (!cwd) return yc_wcsdup_text(L"");\n'
-  result += '    return cwd;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_create_dir(const wchar_t* path) {\n'
-  result += '    if (!path || !path[0]) return 0;\n'
-  result += '    std::error_code ec;\n'
-  result += '    if (ycfs::exists(ycfs::path(path), ec)) return 1;\n'
-  result += '    return ycfs::create_directories(ycfs::path(path), ec) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_remove_dir_all(const wchar_t* path) {\n'
-  result += '    if (!path || !path[0]) return 0;\n'
-  result += '    std::error_code ec;\n'
-  result += '    return ycfs::remove_all(ycfs::path(path), ec) > 0 ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_copy_file(const wchar_t* src, const wchar_t* dst) {\n'
-  result += '    if (!src || !src[0] || !dst || !dst[0]) return 0;\n'
-  result += '    return CopyFileW(src, dst, FALSE) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_move_file(const wchar_t* src, const wchar_t* dst) {\n'
-  result += '    if (!src || !src[0] || !dst || !dst[0]) return 0;\n'
-  result += '    return MoveFileExW(src, dst, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_delete_file(const wchar_t* path) {\n'
-  result += '    if (!path || !path[0]) return 0;\n'
-  result += '    return DeleteFileW(path) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_rename_path(const wchar_t* src, const wchar_t* dst) {\n'
-  result += '    if (!src || !src[0] || !dst || !dst[0]) return 0;\n'
-  result += '    return MoveFileExW(src, dst, MOVEFILE_REPLACE_EXISTING) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_file_exists(const wchar_t* path) {\n'
-  result += '    DWORD attr;\n'
-  result += '    if (!path || !path[0]) return 0;\n'
-  result += '    attr = GetFileAttributesW(path);\n'
-  result += '    return attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_file_len(const wchar_t* path) {\n'
-  result += '    WIN32_FILE_ATTRIBUTE_DATA data;\n'
-  result += '    ULARGE_INTEGER size;\n'
-  result += '    if (!path || !path[0]) return -1;\n'
-  result += '    if (!GetFileAttributesExW(path, GetFileExInfoStandard, &data)) return -1;\n'
-  result += '    if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) return -1;\n'
-  result += '    size.LowPart = data.nFileSizeLow;\n'
-  result += '    size.HighPart = data.nFileSizeHigh;\n'
-  result += '    return size.QuadPart > 2147483647ULL ? 2147483647 : (int)size.QuadPart;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_get_attr(const wchar_t* path) {\n'
-  result += '    DWORD attr;\n'
-  result += '    if (!path || !path[0]) return -1;\n'
-  result += '    attr = GetFileAttributesW(path);\n'
-  result += '    return attr == INVALID_FILE_ATTRIBUTES ? -1 : (int)attr;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_set_attr(const wchar_t* path, int attr) {\n'
-  result += '    if (!path || !path[0]) return 0;\n'
-  result += '    return SetFileAttributesW(path, (DWORD)attr) ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static wchar_t* yc_fs_get_temp_file_name(const wchar_t* dir) {\n'
-  result += '    wchar_t tempPath[MAX_PATH];\n'
-  result += '    wchar_t tempFile[MAX_PATH];\n'
-  result += '    DWORD pathLen = 0;\n'
-  result += '    if (dir && dir[0]) {\n'
-  result += '        wcsncpy(tempPath, dir, MAX_PATH - 1);\n'
-  result += '        tempPath[MAX_PATH - 1] = L\'\\0\';\n'
-  result += '    } else {\n'
-  result += '        pathLen = GetTempPathW(MAX_PATH, tempPath);\n'
-  result += '        if (pathLen == 0 || pathLen >= MAX_PATH) return yc_wcsdup_text(L"");\n'
-  result += '    }\n'
-  result += '    if (!GetTempFileNameW(tempPath, L"YCD", 0, tempFile)) return yc_wcsdup_text(L"");\n'
-  result += '    DeleteFileW(tempFile);\n'
-  result += '    return yc_wcsdup_text(tempFile);\n'
-  result += '}\n\n'
-  result += 'static YC_BIN yc_fs_read_file_bin(const wchar_t* path) {\n'
-  result += '    YC_BIN out;\n'
-  result += '    if (!path || !path[0]) return out;\n'
-  result += '    std::ifstream in(ycfs::path(path), std::ios::binary);\n'
-  result += '    if (!in) return out;\n'
-  result += '    in.seekg(0, std::ios::end);\n'
-  result += '    std::streamoff size = in.tellg();\n'
-  result += '    if (size < 0) return out;\n'
-  result += '    in.seekg(0, std::ios::beg);\n'
-  result += '    out.resize((size_t)size);\n'
-  result += '    if (size > 0) in.read((char*)out.data(), size);\n'
-  result += '    if (!in && size > 0) out.clear();\n'
-  result += '    return out;\n'
-  result += '}\n\n'
-  result += 'static int yc_fs_write_file_bins(const wchar_t* path, const std::vector<YC_BIN>& parts) {\n'
-  result += '    if (!path || !path[0]) return 0;\n'
-  result += '    std::ofstream out(ycfs::path(path), std::ios::binary | std::ios::trunc);\n'
-  result += '    if (!out) return 0;\n'
-  result += '    for (const YC_BIN& part : parts) {\n'
-  result += '        if (!part.empty()) out.write((const char*)part.data(), (std::streamsize)part.size());\n'
-  result += '        if (!out) return 0;\n'
-  result += '    }\n'
-  result += '    return 1;\n'
-  result += '}\n\n'
-  result += 'static HANDLE g_yc_find_handle = INVALID_HANDLE_VALUE;\n'
-  result += 'static WIN32_FIND_DATAW g_yc_find_data;\n'
-  result += 'static int g_yc_find_attr = 0;\n'
-  result += 'static int yc_fs_find_match(const WIN32_FIND_DATAW* data, int attr) {\n'
-  result += '    int isDir;\n'
-  result += '    int required = attr & ~FILE_ATTRIBUTE_DIRECTORY;\n'
-  result += '    if (!data) return 0;\n'
-  result += '    if (wcscmp(data->cFileName, L".") == 0 || wcscmp(data->cFileName, L"..") == 0) return 0;\n'
-  result += '    isDir = (data->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;\n'
-  result += '    if (attr == 0) return isDir ? 0 : 1;\n'
-  result += '    if (isDir && !(attr & FILE_ATTRIBUTE_DIRECTORY)) return 0;\n'
-  result += '    if (!isDir && (attr & FILE_ATTRIBUTE_DIRECTORY) && required == 0) return 0;\n'
-  result += '    return ((int)data->dwFileAttributes & required) == required ? 1 : 0;\n'
-  result += '}\n\n'
-  result += 'static wchar_t* yc_fs_dir(const wchar_t* pattern, int attr) {\n'
-  result += '    int firstCall = pattern && pattern[0];\n'
-  result += '    if (firstCall) {\n'
-  result += '        if (g_yc_find_handle != INVALID_HANDLE_VALUE) { FindClose(g_yc_find_handle); g_yc_find_handle = INVALID_HANDLE_VALUE; }\n'
-  result += '        g_yc_find_attr = attr;\n'
-  result += '        g_yc_find_handle = FindFirstFileW(pattern, &g_yc_find_data);\n'
-  result += '        if (g_yc_find_handle == INVALID_HANDLE_VALUE) return yc_wcsdup_text(L"");\n'
-  result += '        do {\n'
-  result += '            if (yc_fs_find_match(&g_yc_find_data, g_yc_find_attr)) return yc_wcsdup_text(g_yc_find_data.cFileName);\n'
-  result += '        } while (FindNextFileW(g_yc_find_handle, &g_yc_find_data));\n'
-  result += '        FindClose(g_yc_find_handle);\n'
-  result += '        g_yc_find_handle = INVALID_HANDLE_VALUE;\n'
-  result += '        return yc_wcsdup_text(L"");\n'
-  result += '    }\n'
-  result += '    if (g_yc_find_handle == INVALID_HANDLE_VALUE) return yc_wcsdup_text(L"");\n'
-  result += '    while (FindNextFileW(g_yc_find_handle, &g_yc_find_data)) {\n'
-  result += '        if (yc_fs_find_match(&g_yc_find_data, g_yc_find_attr)) return yc_wcsdup_text(g_yc_find_data.cFileName);\n'
-  result += '    }\n'
-  result += '    FindClose(g_yc_find_handle);\n'
-  result += '    g_yc_find_handle = INVALID_HANDLE_VALUE;\n'
-  result += '    return yc_wcsdup_text(L"");\n'
-  result += '}\n\n'
-
   result += generateProjectDataTypeStructCode(projectDataTypes)
 
   if (projectGlobals.length > 0) {
@@ -3575,20 +3628,64 @@ function transpileEycContent(eycContent: string, fileName: string, projectGlobal
         const isTextProp = !!propMatch && (propMatch[2] === '内容' || propMatch[2] === '文本' || propMatch[2] === '标题' || propMatch[2].toLowerCase() === 'text')
 
         const rhsCall = parseCommandCall(rightRaw)
-        const rhsResolved = rhsCall ? commandMap.get(rhsCall.name) : undefined
+        const rhsResolved = rhsCall ? resolveCommandFromCall(rhsCall, commandMap, allCommands, activeControlTypeMap) : undefined
         if (rhsCall && rhsResolved) {
-          const exprGenerator = COMMAND_EXPR_GENERATORS[rhsResolved.name]
-          if (exprGenerator) {
-            const expr = exprGenerator(rhsCall.args || [], commandMap, directCallables)
-            if (propMatch && isTextProp) {
-              emitSubLine(`yc_set_control_text(L"${escapeCString(propMatch[1])}", ${expr});`)
+          const normalizedArgs = (rhsResolved.isMember && rhsCall.ownerName)
+            ? [`yc_get_control_hwnd_by_name(L"${escapeCString(rhsCall.ownerName)}")`, ...(rhsCall.args || [])]
+            : (rhsCall.args || [])
+          const protocols = loadCompileProtocols()
+          const protocolExpr = resolveCommandByProtocol(
+            protocols.commands,
+            rhsResolved.libraryFileName,
+            rhsResolved.name,
+            rhsResolved.englishName,
+            normalizedArgs,
+            commandMap,
+            directCallables,
+          )
+          if (protocolExpr) {
+            const expr = protocolExpr
+            if (propMatch) {
+              const propertySetCode = buildControlPropertySetCode(propMatch[1], propMatch[2], expr, isTextProp)
+              if (propertySetCode) {
+                emitSubLine(propertySetCode)
+              } else {
+                emitSubLine(`/* 未识别的组件属性赋值: ${left} = ${rightRaw} */`)
+              }
             } else {
               emitSubLine(`${left} = ${expr};`)
             }
             continue
           }
-          const assignCode = generateYcGenericCommandAssign(rhsResolved, rhsCall.args || [], left)
-          emitSubLine(assignCode)
+          if (shouldUseNameBasedCommandGenerator(rhsResolved)) {
+            const exprGenerator = COMMAND_EXPR_GENERATORS[rhsResolved.name]
+            if (exprGenerator) {
+              const expr = exprGenerator(normalizedArgs, commandMap, directCallables)
+              if (propMatch) {
+                const propertySetCode = buildControlPropertySetCode(propMatch[1], propMatch[2], expr, isTextProp)
+                if (propertySetCode) {
+                  emitSubLine(propertySetCode)
+                } else {
+                  emitSubLine(`/* 鏈瘑鍒殑缁勪欢灞炴€ц祴鍊? ${left} = ${rightRaw} */`)
+                }
+              } else {
+                emitSubLine(`${left} = ${expr};`)
+              }
+              continue
+            }
+          }
+          if (propMatch) {
+            const expr = generateYcGenericCommandExpr(rhsResolved, normalizedArgs)
+            const propertySetCode = buildControlPropertySetCode(propMatch[1], propMatch[2], expr, isTextProp)
+            if (propertySetCode) {
+              emitSubLine(propertySetCode)
+            } else {
+              emitSubLine(`/* 未识别的组件属性赋值: ${left} = ${rightRaw} */`)
+            }
+          } else {
+            const assignCode = generateYcGenericCommandAssign(rhsResolved, normalizedArgs, left)
+            emitSubLine(assignCode)
+          }
           continue
         }
 
@@ -3597,10 +3694,13 @@ function transpileEycContent(eycContent: string, fileName: string, projectGlobal
         if (propMatch) {
           const ctrlName = propMatch[1]
           const propName = propMatch[2]
-          if (isTextProp) {
-            emitSubLine(`yc_set_control_text(L"${escapeCString(ctrlName)}", ${right});`)
+          const propertySetCode = buildControlPropertySetCode(ctrlName, propName, right, isTextProp)
+          if (propertySetCode) {
+            emitSubLine(propertySetCode)
             continue
           }
+          emitSubLine(`/* 未识别的组件属性赋值: ${left} = ${rightRaw} */`)
+          continue
         }
 
         emitSubLine(`${left} = ${right};`)
@@ -3610,18 +3710,18 @@ function transpileEycContent(eycContent: string, fileName: string, projectGlobal
       const callableLine = line.startsWith('.') ? line.substring(1).trim() : line
 
       // 提取命令名并在支持库中查找
-      const cmdName = extractCommandName(callableLine)
-      const resolved = commandMap.get(cmdName)
+      const call = parseCommandCall(callableLine)
+      const resolved = resolveCommandFromCall(call, commandMap, allCommands, activeControlTypeMap)
 
-      if (resolved) {
+      if (resolved && call) {
         // 命令在支持库中找到 - 解析参数并生成C代码
-        const call = parseCommandCall(callableLine)
-        const args = call ? call.args : []
+        const args = (resolved.isMember && call.ownerName)
+          ? [`yc_get_control_hwnd_by_name(L"${escapeCString(call.ownerName)}")`, ...(call.args || [])]
+          : (call.args || [])
         const cCode = generateCCodeForCommand(resolved, args, commandMap, directCallables)
         emitSubLine(cCode)
       } else {
         // 非支持库命令 - 尝试作为用户自定义子程序调用
-        const call = parseCommandCall(callableLine)
         if (call && call.name) {
           const cArgs = call.args.map(a => formatArgForC(a, commandMap, directCallables)).join(', ')
           emitSubLine(`${call.name}(${cArgs});`)
@@ -3657,7 +3757,7 @@ function generateMainC(
 
   let mainCode = '/* 由 ycIDE 自动生成 */\n'
   mainCode += `/* 项目名称: ${project.projectName} */\n\n`
-  mainCode += '#include <windows.h>\n#include <commctrl.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n#include <io.h>\n#include <fcntl.h>\n\n'
+  mainCode += '#include <windows.h>\n#include <commctrl.h>\n#include <stdint.h>\n#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n#include <io.h>\n#include <fcntl.h>\n#include <vector>\n\n'
 
   const isWindowsApp = project.outputType === 'WindowsApp'
   const projectGlobals = collectProjectGlobalVars(project, editorFiles)
@@ -3667,9 +3767,12 @@ function generateMainC(
   const projectDataTypes = collectProjectDataTypes(project, editorFiles)
   const projectDllCommands = collectProjectDllCommands(project, editorFiles)
   activeProjectCustomTypeNames = new Set(projectDataTypes.map(dt => dt.name))
+  activeControlTypeMap = collectProjectWindowControlTypeMap(project, editorFiles)
   const librariesForBuild = linkedLibraries || libraryManager.getLoadedLibraryFiles()
   const usedLibraryNames = new Set(librariesForBuild.map(l => l.name))
   const libraryConstants = collectLibraryConstants(usedLibraryNames)
+  const allUnits = libraryManager.getAllWindowUnits()
+  const needsKrnlnWindowUnitInit = librariesForBuild.some(l => l.name === 'krnln')
 
   mainCode += '#define YC_SDT_BYTE 0x80000101u\n'
   mainCode += '#define YC_SDT_SHORT 0x80000201u\n'
@@ -3679,6 +3782,7 @@ function generateMainC(
   mainCode += '#define YC_SDT_DOUBLE 0x80000601u\n'
   mainCode += '#define YC_SDT_BOOL 0x80000002u\n'
   mainCode += '#define YC_SDT_TEXT 0x80000004u\n\n'
+  mainCode += 'typedef std::vector<unsigned char> YC_BIN;\n'
   mainCode += 'typedef uint32_t YC_DATA_TYPE;\n'
   mainCode += 'typedef struct YC_MDATA_INF {\n'
   mainCode += '    union {\n'
@@ -3694,6 +3798,9 @@ function generateMainC(
   mainCode += '    YC_DATA_TYPE m_dtDataType;\n'
   mainCode += '} YC_MDATA_INF;\n'
   mainCode += 'typedef void (*YC_PFN_EXECUTE_CMD)(YC_MDATA_INF* pRetData, int nArgCount, YC_MDATA_INF* pArgInf);\n\n'
+  if (needsKrnlnWindowUnitInit) {
+    mainCode += 'extern "C" int krnln_init_window_units(void);\n\n'
+  }
 
   const staticCmdDispatchLibs = Array.from(new Set(commandDispatchLibs || []))
   const dispatchLibInfos = staticCmdDispatchLibs
@@ -3737,6 +3844,10 @@ function generateMainC(
   mainCode += '    if (!fn) return;\n'
   mainCode += '    fn(pRetData, argCount, pArgs);\n'
   mainCode += '}\n\n'
+  mainCode += 'extern "C" const wchar_t* krnln_control_get_text(long long controlHandle);\n'
+  mainCode += 'extern "C" int krnln_control_set_text(long long controlHandle, const wchar_t* text);\n'
+  mainCode += 'extern "C" int krnln_control_set_prop_num(long long controlHandle, int propIndex, intptr_t value);\n'
+  mainCode += 'extern "C" int krnln_control_set_prop_bin(long long controlHandle, int propIndex, const void* value);\n\n'
 
   if (isWindowsApp) {
     // 查找启动窗口文件
@@ -3813,26 +3924,15 @@ function generateMainC(
     }
     mainCode += '    return NULL;\n'
     mainCode += '}\n\n'
+    mainCode += 'long long yc_get_control_hwnd_by_name(const wchar_t* ctrlName) {\n'
+    mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
+    mainCode += '    return (long long)(intptr_t)hCtrl;\n'
+    mainCode += '}\n\n'
 
-    mainCode += 'static wchar_t* g_yc_text_buffers[4] = { NULL, NULL, NULL, NULL };\n'
-    mainCode += 'static int g_yc_text_buffer_sizes[4] = { 0, 0, 0, 0 };\n'
-    mainCode += 'static int g_yc_text_buffer_index = 0;\n\n'
     mainCode += 'const wchar_t* yc_get_control_text(const wchar_t* ctrlName) {\n'
     mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
     mainCode += '    if (!hCtrl) return L"";\n'
-    mainCode += '    int slot = g_yc_text_buffer_index++ % 4;\n'
-    mainCode += '    int len = GetWindowTextLengthW(hCtrl);\n'
-    mainCode += '    int need = len + 1;\n'
-    mainCode += '    if (need < 1) need = 1;\n'
-    mainCode += '    if (g_yc_text_buffer_sizes[slot] < need) {\n'
-    mainCode += '        wchar_t* resized = (wchar_t*)realloc(g_yc_text_buffers[slot], sizeof(wchar_t) * (size_t)need);\n'
-    mainCode += '        if (!resized) return L"";\n'
-    mainCode += '        g_yc_text_buffers[slot] = resized;\n'
-    mainCode += '        g_yc_text_buffer_sizes[slot] = need;\n'
-    mainCode += '    }\n'
-    mainCode += '    g_yc_text_buffers[slot][0] = L\'\\0\';\n'
-    mainCode += '    GetWindowTextW(hCtrl, g_yc_text_buffers[slot], need);\n'
-    mainCode += '    return g_yc_text_buffers[slot];\n'
+    mainCode += '    return krnln_control_get_text((long long)(intptr_t)hCtrl);\n'
     mainCode += '}\n\n'
 
     mainCode += 'int yc_text_compare(const wchar_t* left, const wchar_t* right) {\n'
@@ -3851,7 +3951,17 @@ function generateMainC(
     mainCode += 'void yc_set_control_text(const wchar_t* ctrlName, const wchar_t* text) {\n'
     mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
     mainCode += '    if (!hCtrl) return;\n'
-    mainCode += '    SetWindowTextW(hCtrl, text ? text : L"");\n'
+    mainCode += '    krnln_control_set_text((long long)(intptr_t)hCtrl, text ? text : L"");\n'
+    mainCode += '}\n\n'
+    mainCode += 'void yc_set_control_prop_num(const wchar_t* ctrlName, int propIndex, intptr_t value) {\n'
+    mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
+    mainCode += '    if (!hCtrl || propIndex < 0) return;\n'
+    mainCode += '    krnln_control_set_prop_num((long long)(intptr_t)hCtrl, propIndex, value);\n'
+    mainCode += '}\n\n'
+    mainCode += 'void yc_set_control_prop_bin(const wchar_t* ctrlName, int propIndex, const void* value) {\n'
+    mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
+    mainCode += '    if (!hCtrl || propIndex < 0) return;\n'
+    mainCode += '    krnln_control_set_prop_bin((long long)(intptr_t)hCtrl, propIndex, value);\n'
     mainCode += '}\n\n'
 
     // 前向声明 .eyc 中的子程序
@@ -3872,7 +3982,6 @@ function generateMainC(
       sendMessage({ type: 'info', text: `已生成: ${cFileName}` })
     }
 
-    const allUnits = libraryManager.getAllWindowUnits()
     const compileProtocols = loadCompileProtocols()
     const protocolBindings = compileProtocols.events
     const controlProtocolBindings = compileProtocols.controls
@@ -3917,7 +4026,14 @@ function generateMainC(
           if (prop.typeName === '逻辑型') {
             lparamCode = (value === true || value === '真') ? 'TRUE' : 'FALSE'
           } else {
-            lparamCode = typeof value === 'number' ? String(value) : '0'
+            if (typeof value === 'number' && Number.isFinite(value)) {
+              lparamCode = String(value)
+            } else if (typeof value === 'string') {
+              const parsed = Number(value.trim())
+              lparamCode = Number.isFinite(parsed) ? String(parsed) : '0'
+            } else {
+              lparamCode = '0'
+            }
           }
           mainCode += `    SendMessage(hCtrl, WM_APP + 1, ${pi}, (LPARAM)${lparamCode});\n`
         }
@@ -3930,9 +4046,11 @@ function generateMainC(
     type CommandEventBinding = { ctrlName: string; notifyCode: string; handlerName: string }
     type NotifyEventBinding = { ctrlName: string; notifyCode: string; handlerName: string }
     type ScrollEventBinding = { ctrlName: string; message: 'WM_HSCROLL' | 'WM_VSCROLL'; handlerName: string }
+    type PaintEventBinding = { ctrlName: string; handlerName: string }
     const commandEventBindings: CommandEventBinding[] = []
     const notifyEventBindings: NotifyEventBinding[] = []
     const scrollEventBindings: ScrollEventBinding[] = []
+    const paintEventBindings: PaintEventBinding[] = []
     const unresolvedEvents = new Set<string>()
 
     for (const ctrl of winInfo.controls) {
@@ -3961,6 +4079,10 @@ function generateMainC(
           }
           if (proto.channel === 'WM_HSCROLL' || proto.channel === 'WM_VSCROLL') {
             scrollEventBindings.push({ ctrlName: ctrl.name, message: proto.channel, handlerName })
+            continue
+          }
+          if (proto.channel === 'WM_PAINT') {
+            paintEventBindings.push({ ctrlName: ctrl.name, handlerName })
             continue
           }
         }
@@ -4011,18 +4133,46 @@ function generateMainC(
       seenScrollBindings.add(key)
       return true
     })
+    const seenPaintBindings = new Set<string>()
+    const uniquePaintEventBindings = paintEventBindings.filter(b => {
+      const key = `${b.ctrlName}|${b.handlerName}`
+      if (seenPaintBindings.has(key)) return false
+      seenPaintBindings.add(key)
+      return true
+    })
 
     mainCode += '/* 事件处理函数默认实现 */\n'
+    mainCode += '#ifdef _MSC_VER\n'
+    mainCode += '#define WEAK_FUNC\n'
+    mainCode += '#else\n'
     mainCode += '#define WEAK_FUNC __attribute__((weak))\n'
+    mainCode += '#endif\n'
+    const userDefinedSubprogramNames = collectProjectSubprogramNames(project, editorFiles)
+    const shouldEmitDefaultHandler = (handlerName: string): boolean => !userDefinedSubprogramNames.has(handlerName)
+    const declaredHandlerPrototypes = new Set<string>()
+    const emitHandlerPrototype = (handlerName: string, signature: string): void => {
+      const key = `${handlerName}|${signature}`
+      if (declaredHandlerPrototypes.has(key)) return
+      declaredHandlerPrototypes.add(key)
+      mainCode += `void ${handlerName}${signature};\n`
+    }
 
     // 兼容历史按钮事件命名
     const isClickable = (t: string) => ['Button', '按钮', 'ycUI按钮'].includes(t)
     const declaredHandlers = new Set<string>()
     for (const ctrl of winInfo.controls) {
       if (isClickable(ctrl.type)) {
-        mainCode += `WEAK_FUNC void ${ctrl.name}_被单击(void) { }\n`
+        if (shouldEmitDefaultHandler(`${ctrl.name}_被单击`)) {
+          mainCode += `WEAK_FUNC void ${ctrl.name}_被单击(void) { }\n`
+        } else {
+          emitHandlerPrototype(`${ctrl.name}_被单击`, '(void)')
+        }
         const compatHandlerName = `_${ctrl.name.replace(/^_+/, '')}_被单击`
-        mainCode += `WEAK_FUNC void ${compatHandlerName}(void) { ${ctrl.name}_被单击(); }\n`
+        if (shouldEmitDefaultHandler(compatHandlerName)) {
+          mainCode += `WEAK_FUNC void ${compatHandlerName}(void) { ${ctrl.name}_被单击(); }\n`
+        } else {
+          emitHandlerPrototype(compatHandlerName, '(void)')
+        }
         declaredHandlers.add(compatHandlerName)
       }
     }
@@ -4030,29 +4180,60 @@ function generateMainC(
     for (const b of uniqueCommandEventBindings) {
       if (declaredHandlers.has(b.handlerName)) continue
       declaredHandlers.add(b.handlerName)
-      mainCode += `WEAK_FUNC void ${b.handlerName}(void) { }\n`
+      if (shouldEmitDefaultHandler(b.handlerName)) {
+        mainCode += `WEAK_FUNC void ${b.handlerName}(void) { }\n`
+      } else {
+        emitHandlerPrototype(b.handlerName, '(void)')
+      }
     }
     for (const b of uniqueNotifyEventBindings) {
       if (declaredHandlers.has(b.handlerName)) continue
       declaredHandlers.add(b.handlerName)
-      mainCode += `WEAK_FUNC void ${b.handlerName}(void) { }\n`
+      if (shouldEmitDefaultHandler(b.handlerName)) {
+        mainCode += `WEAK_FUNC void ${b.handlerName}(void) { }\n`
+      } else {
+        emitHandlerPrototype(b.handlerName, '(void)')
+      }
     }
     for (const b of uniqueScrollEventBindings) {
       if (declaredHandlers.has(b.handlerName)) continue
       declaredHandlers.add(b.handlerName)
-      mainCode += `WEAK_FUNC void ${b.handlerName}(void) { }\n`
+      if (shouldEmitDefaultHandler(b.handlerName)) {
+        mainCode += `WEAK_FUNC void ${b.handlerName}(void) { }\n`
+      } else {
+        emitHandlerPrototype(b.handlerName, '(void)')
+      }
+    }
+    for (const b of uniquePaintEventBindings) {
+      if (declaredHandlers.has(b.handlerName)) continue
+      declaredHandlers.add(b.handlerName)
+      if (shouldEmitDefaultHandler(b.handlerName)) {
+        mainCode += `WEAK_FUNC void ${b.handlerName}(void) { }\n`
+      } else {
+        emitHandlerPrototype(b.handlerName, '(void)')
+      }
     }
 
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_创建完毕(void) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_按下某键(int 键代码, int 功能键状态) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_某键被放开(int 键代码, int 功能键状态) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_窗口尺寸被改变(int 宽度, int 高度) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_被移动(int 左边, int 顶边) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_被激活(int 激活状态) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_得到焦点(void) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_失去焦点(void) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_即将被销毁(void) { }\n`
-    mainCode += `WEAK_FUNC void ${windowEventPrefix}_被销毁(void) { }\n`
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_创建完毕`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_创建完毕(void) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_创建完毕`, '(void)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_按下某键`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_按下某键(int 键代码, int 功能键状态) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_按下某键`, '(int 键代码, int 功能键状态)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_某键被放开`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_某键被放开(int 键代码, int 功能键状态) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_某键被放开`, '(int 键代码, int 功能键状态)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_窗口尺寸被改变`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_窗口尺寸被改变(int 宽度, int 高度) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_窗口尺寸被改变`, '(int 宽度, int 高度)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_被移动`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_被移动(int 左边, int 顶边) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_被移动`, '(int 左边, int 顶边)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_被激活`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_被激活(int 激活状态) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_被激活`, '(int 激活状态)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_得到焦点`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_得到焦点(void) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_得到焦点`, '(void)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_失去焦点`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_失去焦点(void) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_失去焦点`, '(void)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_即将被销毁`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_即将被销毁(void) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_即将被销毁`, '(void)')
+    if (shouldEmitDefaultHandler(`${windowEventPrefix}_被销毁`)) mainCode += `WEAK_FUNC void ${windowEventPrefix}_被销毁(void) { }\n`
+    else emitHandlerPrototype(`${windowEventPrefix}_被销毁`, '(void)')
 
     // 窗口过程
     mainCode += '/* 窗口过程函数 */\n'
@@ -4141,6 +4322,25 @@ function generateMainC(
     mainCode += '    case WM_PAINT: {\n'
     mainCode += '        PAINTSTRUCT ps;\n'
     mainCode += '        HDC hdc = BeginPaint(hWnd, &ps);\n'
+    for (const ctrl of winInfo.controls) {
+      const bindings = uniquePaintEventBindings.filter(b => b.ctrlName === ctrl.name)
+      if (bindings.length > 0) {
+        mainCode += `        {\n`
+        mainCode += `            HWND hPaintCtrl = GetDlgItem(hWnd, IDC_${ctrl.name.toUpperCase()});\n`
+        mainCode += '            if (hPaintCtrl) {\n'
+        mainCode += '                RECT rcCtrl;\n'
+        mainCode += '                GetWindowRect(hPaintCtrl, &rcCtrl);\n'
+        mainCode += '                MapWindowPoints(NULL, hWnd, (LPPOINT)&rcCtrl, 2);\n'
+        mainCode += '                RECT rcHit;\n'
+        mainCode += '                if (IntersectRect(&rcHit, &rcCtrl, &ps.rcPaint)) {\n'
+        for (const b of bindings) {
+          mainCode += `                    ${b.handlerName}();\n`
+        }
+        mainCode += '                }\n'
+        mainCode += '            }\n'
+        mainCode += '        }\n'
+      }
+    }
     mainCode += '        EndPaint(hWnd, &ps);\n'
     mainCode += '        break;\n'
     mainCode += '    }\n'
@@ -4194,6 +4394,9 @@ function generateMainC(
     mainCode += '        }\n'
     mainCode += '    }\n'
     mainCode += '    g_hInstance = hInstance;\n'
+    if (needsKrnlnWindowUnitInit) {
+      mainCode += '    krnln_init_window_units();\n'
+    }
     // 初始化有窗口组件的支持库（按配置加载动态模块）
     {
       for (const lib of librariesForBuild) {
@@ -4294,6 +4497,21 @@ function generateMainC(
     mainCode += '}\n'
   } else {
     // 控制台程序
+    mainCode += 'long long yc_get_control_hwnd_by_name(const wchar_t* ctrlName) {\n'
+    mainCode += '    (void)ctrlName;\n'
+    mainCode += '    return 0;\n'
+    mainCode += '}\n\n'
+    mainCode += 'void yc_set_control_prop_num(const wchar_t* ctrlName, int propIndex, intptr_t value) {\n'
+    mainCode += '    (void)ctrlName;\n'
+    mainCode += '    (void)propIndex;\n'
+    mainCode += '    (void)value;\n'
+    mainCode += '}\n\n'
+    mainCode += 'void yc_set_control_prop_bin(const wchar_t* ctrlName, int propIndex, const void* value) {\n'
+    mainCode += '    (void)ctrlName;\n'
+    mainCode += '    (void)propIndex;\n'
+    mainCode += '    (void)value;\n'
+    mainCode += '}\n\n'
+
     // 先转译 .eyc 文件
     for (const f of project.files) {
       if (f.type !== 'EYC' && f.type !== 'EGV' && f.type !== 'ECS' && f.type !== 'EDT' && f.type !== 'ELL') continue
@@ -4446,12 +4664,14 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
     const outputFileName = getBinaryFileName(outputName, project.outputType, targetPlatform)
     const outputBinary = join(outputDir, outputFileName)
     const mainC = join(tempDir, 'main.cpp')
+    const sourceFiles: string[] = [mainC, ...additionalCFiles]
+    const msvcLinkInputs: string[] = []
 
     const args: string[] = [
       '-o', outputBinary,
-      mainC,
-      ...additionalCFiles,
+      ...sourceFiles,
     ]
+    args.push('-std=c++20')
 
     const resourceBuild = await compileProjectResources(project, targetPlatform, targetArch, tempDir, zigPath, editorFiles)
     if (!resourceBuild.success) {
@@ -4464,12 +4684,66 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
     }
 
     // 项目类型
+    const resolvedStaticLibs = libsToLink.map(lib => ({
+      lib,
+      staticLib: libraryManager.findStaticLib(lib.name, targetArch),
+    }))
+    const hasDebugStyleStaticLib = resolvedStaticLibs.some(item => {
+      if (!item.staticLib) return false
+      const p = item.staticLib
+      const base = basename(p).toLowerCase()
+      if (/[\\/](debug|dbg)[\\/]/i.test(p)) return true
+      if (base.endsWith('d.lib')) return true
+      return false
+    })
+
+    let effectiveTargetTriple = targetTriple
+    let windowsLinkFlavor: 'gnu' | 'msvc' = 'gnu'
+    const windowsMsvcLibDirs: string[] = []
+    let windowsSdkUmLibDir: string | null = null
+    let windowsSdkUcrtLibDir: string | null = null
+    let windowsMsvcToolLibDir: string | null = null
+    if (targetPlatform === 'windows') {
+      const hasMsvcStyleStaticLib = resolvedStaticLibs.some(item => !!item.staticLib && /\.lib$/i.test(item.staticLib))
+      if (hasMsvcStyleStaticLib) {
+        effectiveTargetTriple = targetArch === 'x86'
+          ? 'x86-windows-msvc'
+          : (targetArch === 'arm64' ? 'aarch64-windows-msvc' : 'x86_64-windows-msvc')
+        windowsLinkFlavor = 'msvc'
+      }
+      if (windowsLinkFlavor === 'msvc') {
+        windowsMsvcToolLibDir = findMsvcToolLibDir(targetArch)
+        windowsSdkUmLibDir = findWindowsSdkLibDir('um', targetArch)
+        windowsSdkUcrtLibDir = findWindowsSdkLibDir('ucrt', targetArch)
+        const sdkRoots = getWindowsSdkLibRoots()
+        if (windowsMsvcToolLibDir) windowsMsvcLibDirs.push(windowsMsvcToolLibDir)
+        if (windowsSdkUmLibDir) windowsMsvcLibDirs.push(windowsSdkUmLibDir)
+        if (windowsSdkUcrtLibDir) windowsMsvcLibDirs.push(windowsSdkUcrtLibDir)
+
+        if (!windowsSdkUmLibDir) {
+          const rootHint = sdkRoots.length > 0 ? `（已扫描: ${sdkRoots.join('; ')}）` : '（未检测到任何 Windows SDK 根目录）'
+          sendMessage({ type: 'warning', text: `警告: 未找到 Windows SDK (um) 库目录，MSVC 链接不可用，已回退 GNU 链接模式。${rootHint}` })
+          windowsLinkFlavor = 'gnu'
+          effectiveTargetTriple = buildZigTargetTriple(targetPlatform, targetArch)
+          windowsMsvcLibDirs.length = 0
+        }
+      }
+      if (windowsMsvcLibDirs.length > 0) {
+        sendMessage({ type: 'info', text: `MSVC 库搜索目录: ${windowsMsvcLibDirs.join('; ')}` })
+      }
+      sendMessage({ type: 'info', text: `Windows 链接模式: ${windowsLinkFlavor === 'msvc' ? 'MSVC' : 'GNU'}` })
+    }
+
     const isWindowsApp = project.outputType === 'WindowsApp'
     if (isWindowsApp) {
       if (targetPlatform !== 'windows') {
         sendMessage({ type: 'warning', text: `警告: 窗口程序当前仅支持 Windows 目标，已按 ${targetPlatform} 继续尝试编译` })
       }
-      args.push('-Xlinker', '--subsystem', '-Xlinker', 'windows')
+      if (targetPlatform === 'windows' && windowsLinkFlavor === 'msvc') {
+        args.push('-Xlinker', '/subsystem:windows')
+      } else {
+        args.push('-Xlinker', '--subsystem', '-Xlinker', 'windows')
+      }
       sendMessage({ type: 'info', text: '项目类型: Windows窗口程序' })
     } else if (project.outputType === 'DynamicLibrary') {
       args.push('-shared')
@@ -4480,7 +4754,27 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
 
     // 平台系统库
     if (targetPlatform === 'windows') {
-      args.push('-lkernel32', '-luser32', '-lgdi32')
+      if (windowsLinkFlavor === 'msvc') {
+        const msvcSystemLib = (name: string): string => {
+          if (windowsSdkUmLibDir) return join(windowsSdkUmLibDir, `${name}.lib`)
+          return `${name}.lib`
+        }
+        for (const libDir of windowsMsvcLibDirs) {
+          args.push('-L', libDir)
+        }
+        const systemMsvcLibs = [
+          msvcSystemLib('kernel32'),
+          msvcSystemLib('user32'),
+          msvcSystemLib('gdi32'),
+          msvcSystemLib('gdiplus'),
+          msvcSystemLib('ole32'),
+          msvcSystemLib('uuid'),
+        ]
+        args.push(...systemMsvcLibs)
+        msvcLinkInputs.push(...systemMsvcLibs)
+      } else {
+        args.push('-lkernel32', '-luser32', '-lgdi32', '-lgdiplus', '-lole32')
+      }
     }
 
     // ========== 支持库链接 ==========
@@ -4488,8 +4782,9 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
       sendMessage({ type: 'info', text: `已加载 ${loadedLibs.length} 个支持库，实际使用 ${libsToLink.length} 个，正在处理链接依赖...` })
     }
 
-    for (const lib of libsToLink) {
-      const staticLib = libraryManager.findStaticLib(lib.name, targetArch)
+    for (const item of resolvedStaticLibs) {
+      const lib = item.lib
+      const staticLib = item.staticLib
 
       // 窗口组件静态库需要额外链接的系统库
       const winUnitExtraDeps: Record<string, string[]> = {
@@ -4498,6 +4793,13 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
       const extraDeps = (targetPlatform === 'windows' && staticLib && winUnitExtraDeps[lib.name]) ? winUnitExtraDeps[lib.name] : []
 
       if (staticLib) {
+        if (targetPlatform === 'windows' && windowsLinkFlavor === 'msvc') {
+          if (/\.lib$/i.test(staticLib)) {
+            msvcLinkInputs.push(staticLib, ...extraDeps)
+          } else {
+            sendMessage({ type: 'warning', text: `  ○ ${lib.libName} (${lib.name}) - MSVC 模式不支持 ${basename(staticLib)}，已跳过` })
+          }
+        }
         args.push(staticLib, ...extraDeps)
         sendMessage({ type: 'info', text: `  ✓ ${lib.libName} (${lib.name}) - 静态链接: ${basename(staticLib)}` })
       } else {
@@ -4505,7 +4807,7 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
       }
     }
 
-    args.push('-target', targetTriple)
+    args.push('-target', effectiveTargetTriple)
 
     // 源文件/执行字符集均使用 UTF-8，确保中文字符串字面量不被 MSVC 模式按 GBK 解析
     args.push('-finput-charset=utf-8', '-fexec-charset=utf-8')
@@ -4515,64 +4817,190 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
       args.push('-g')
     } else {
       args.push('-O2', '-fno-ident', '-ffunction-sections', '-fdata-sections')
-      args.push('-Wl,--gc-sections')
+      if (!(targetPlatform === 'windows' && windowsLinkFlavor === 'msvc')) {
+        args.push('-Wl,--gc-sections')
+      }
     }
 
     sendMessage({ type: 'info', text: '正在编译...' })
 
     const commandSourceLocations = collectCommandSourceLocationsByLibrary(project, editorFiles)
     const unresolvedCmdLibReported = new Set<string>()
+    const reportCompilerText = (text: string | Buffer | undefined | null): void => {
+      if (!text) return
+      const payload = typeof text === 'string' ? text : text.toString('utf8')
+      const lines = payload.split('\n').filter(l => l.trim())
+      for (const line of lines) {
+        const lower = line.toLowerCase()
+        const localized = localizeCompilerMessage(line)
 
-    // 调用 zig c++
-    const compileSuccess = await new Promise<boolean>((resolve) => {
-      const zigDir = dirname(zigPath)
-      const zigArgs = ['c++', ...args]
-      const proc = execFile(zigPath, zigArgs, { cwd: zigDir, maxBuffer: 10 * 1024 * 1024 }, (error, _stdout, stderr) => {
-        if (stderr) {
-          const lines = stderr.split('\n').filter(l => l.trim())
-          for (const line of lines) {
-            const lower = line.toLowerCase()
-            const localized = localizeCompilerMessage(line)
-
-            const unresolvedMatch = line.match(/g_cmdInfo_([A-Za-z0-9_]+)_global_var_fun/i)
-            if (unresolvedMatch) {
-              const libFileName = unresolvedMatch[1]
-              if (!unresolvedCmdLibReported.has(libFileName)) {
-                unresolvedCmdLibReported.add(libFileName)
-                const hits = commandSourceLocations.get(libFileName) || []
-                if (hits.length > 0) {
-                  sendMessage({ type: 'warning', text: `>>> 易语言源码位置（支持库 ${libFileName}）:` })
-                  const maxHints = 8
-                  for (const hit of hits.slice(0, maxHints)) {
-                    sendMessage({ type: 'warning', text: `>>>   ${hit.fileName}:${hit.lineNo}  命令: ${hit.commandName}` })
-                  }
-                  if (hits.length > maxHints) {
-                    sendMessage({ type: 'warning', text: `>>>   ... 其余 ${hits.length - maxHints} 处调用已省略` })
-                  }
-                } else {
-                  sendMessage({ type: 'warning', text: `>>> 未能自动定位对应易语言源码位置（支持库 ${libFileName}）` })
-                }
+        const unresolvedMatch = line.match(/g_cmdInfo_([A-Za-z0-9_]+)_global_var_fun/i)
+        if (unresolvedMatch) {
+          const libFileName = unresolvedMatch[1]
+          if (!unresolvedCmdLibReported.has(libFileName)) {
+            unresolvedCmdLibReported.add(libFileName)
+            const hits = commandSourceLocations.get(libFileName) || []
+            if (hits.length > 0) {
+              sendMessage({ type: 'warning', text: `>>> 易语言源码位置（支持库 ${libFileName}）:` })
+              const maxHints = 8
+              for (const hit of hits.slice(0, maxHints)) {
+                sendMessage({ type: 'warning', text: `>>>   ${hit.fileName}:${hit.lineNo}  命令: ${hit.commandName}` })
               }
-            }
-
-            if (lower.includes('error')) {
-              sendMessage({ type: 'error', text: localized })
-              result.errorCount++
-            } else if (lower.includes('warning')) {
-              sendMessage({ type: 'warning', text: localized })
-              result.warningCount++
+              if (hits.length > maxHints) {
+                sendMessage({ type: 'warning', text: `>>>   ... 其余 ${hits.length - maxHints} 处调用已省略` })
+              }
             } else {
-              sendMessage({ type: 'info', text: localized })
+              sendMessage({ type: 'warning', text: `>>> 未能自动定位对应易语言源码位置（支持库 ${libFileName}）` })
             }
           }
         }
-        resolve(!error)
+
+        if (lower.includes('error')) {
+          sendMessage({ type: 'error', text: localized })
+          result.errorCount++
+        } else if (lower.includes('warning')) {
+          sendMessage({ type: 'warning', text: localized })
+          result.warningCount++
+        } else {
+          sendMessage({ type: 'info', text: localized })
+        }
+      }
+    }
+
+    const runProcess = async (exePath: string, procArgs: string[], cwd: string, startupErrorText: string): Promise<boolean> => {
+      return await new Promise<boolean>((resolve) => {
+        const proc = execFile(exePath, procArgs, { cwd, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+          reportCompilerText(stdout)
+          reportCompilerText(stderr)
+          resolve(!error)
+        })
+        proc.on('error', (err) => {
+          sendMessage({ type: 'error', text: `${startupErrorText}: ${err.message}` })
+          resolve(false)
+        })
       })
-      proc.on('error', (err) => {
-        sendMessage({ type: 'error', text: `编译器进程启动失败: ${err.message}` })
-        resolve(false)
-      })
-    })
+    }
+
+    let compileSuccess = false
+    if (targetPlatform === 'windows' && windowsLinkFlavor === 'msvc') {
+      const targetBinArch = mapArchToWindowsLibDir(targetArch)
+      const hostBinArch = process.arch === 'ia32' ? 'x86' : (process.arch === 'arm64' ? 'arm64' : 'x64')
+      const hostDir = `Host${hostBinArch}`
+      const msvcToolRoot = windowsMsvcToolLibDir ? dirname(dirname(windowsMsvcToolLibDir)) : ''
+      const clCandidates = [
+        join(msvcToolRoot, 'bin', hostDir, targetBinArch, 'cl.exe'),
+        join(msvcToolRoot, 'bin', 'Hostx64', targetBinArch, 'cl.exe'),
+        join(msvcToolRoot, 'bin', 'Hostx86', targetBinArch, 'cl.exe'),
+        'cl.exe',
+      ]
+      const linkCandidates = [
+        join(msvcToolRoot, 'bin', hostDir, targetBinArch, 'link.exe'),
+        join(msvcToolRoot, 'bin', 'Hostx64', targetBinArch, 'link.exe'),
+        join(msvcToolRoot, 'bin', 'Hostx86', targetBinArch, 'link.exe'),
+        'link.exe',
+      ]
+      const clPath = clCandidates.find(p => p === 'cl.exe' || existsSync(p)) || ''
+      const linkPath = linkCandidates.find(p => p === 'link.exe' || existsSync(p)) || ''
+
+      if (!clPath || !linkPath) {
+        sendMessage({ type: 'error', text: '编译器错误: 未找到 MSVC cl/link 工具链。' })
+      } else {
+        const includeDirs: string[] = []
+        const msvcIncludeDir = msvcToolRoot ? join(msvcToolRoot, 'include') : ''
+        if (msvcIncludeDir && existsSync(msvcIncludeDir)) includeDirs.push(msvcIncludeDir)
+
+        const sdkLibSource = windowsSdkUmLibDir || windowsSdkUcrtLibDir
+        if (sdkLibSource) {
+          const sdkVersionDir = dirname(dirname(sdkLibSource))
+          const sdkVersion = basename(sdkVersionDir)
+          const sdkRoot = dirname(dirname(sdkVersionDir))
+          const sdkIncludeRoot = join(sdkRoot, 'Include', sdkVersion)
+          const sdkIncludeKinds = ['ucrt', 'um', 'shared', 'winrt', 'cppwinrt']
+          for (const kind of sdkIncludeKinds) {
+            const incDir = join(sdkIncludeRoot, kind)
+            if (existsSync(incDir)) includeDirs.push(incDir)
+          }
+        }
+
+        const runtimeFlag = (options.debug && hasDebugStyleStaticLib) ? '/MTd' : '/MT'
+        const iteratorDebugLevel = runtimeFlag === '/MTd' ? '2' : '0'
+        if (options.debug && runtimeFlag === '/MT') {
+          sendMessage({ type: 'info', text: 'MSVC 调试编译检测到 Release 风格静态库，已使用 /MT 并关闭迭代器调试以保持 ABI 一致。' })
+        }
+        const objFiles: string[] = []
+        compileSuccess = true
+
+        for (let i = 0; i < sourceFiles.length; i++) {
+          const srcFile = sourceFiles[i]
+          const objFile = join(tempDir, `msvc_${i}_${basename(srcFile).replace(/\.[^.]+$/, '.obj')}`)
+          objFiles.push(objFile)
+
+          const clArgs: string[] = [
+            '/nologo',
+            '/c',
+            '/utf-8',
+            '/std:c++20',
+            '/EHsc',
+            '/Zc:__cplusplus',
+            runtimeFlag,
+            `/D_ITERATOR_DEBUG_LEVEL=${iteratorDebugLevel}`,
+            '/DUNICODE',
+            '/D_UNICODE',
+            '/DWIN32',
+            '/D_WINDOWS',
+            `/Fo${objFile}`,
+          ]
+          if (runtimeFlag !== '/MTd') {
+            clArgs.push('/D_HAS_ITERATOR_DEBUGGING=0')
+          }
+          if (options.debug) {
+            clArgs.push('/Zi', '/Od')
+          } else {
+            clArgs.push('/O2', '/DNDEBUG')
+          }
+          for (const incDir of includeDirs) {
+            clArgs.push(`/I${incDir}`)
+          }
+          clArgs.push(srcFile)
+
+          const ok = await runProcess(clPath, clArgs, tempDir, '编译器进程启动失败')
+          if (!ok) {
+            compileSuccess = false
+            break
+          }
+        }
+
+        if (compileSuccess) {
+          const linkArgs: string[] = [
+            '/NOLOGO',
+            `/OUT:${outputBinary}`,
+          ]
+          if (project.outputType === 'DynamicLibrary') {
+            linkArgs.push('/DLL')
+          } else if (isWindowsApp) {
+            linkArgs.push('/SUBSYSTEM:WINDOWS')
+          } else {
+            linkArgs.push('/SUBSYSTEM:CONSOLE')
+          }
+          if (options.debug) {
+            linkArgs.push('/DEBUG')
+          }
+          for (const libDir of windowsMsvcLibDirs) {
+            linkArgs.push(`/LIBPATH:${libDir}`)
+          }
+          if (resourceBuild.objectFilePath) {
+            linkArgs.push(resourceBuild.objectFilePath)
+          }
+          linkArgs.push(...objFiles, ...msvcLinkInputs)
+
+          compileSuccess = await runProcess(linkPath, linkArgs, tempDir, '链接器进程启动失败')
+        }
+      }
+    } else {
+      const zigDir = dirname(zigPath)
+      const zigArgs = ['c++', ...args]
+      compileSuccess = await runProcess(zigPath, zigArgs, zigDir, '编译器进程启动失败')
+    }
 
     if (!compileSuccess || !existsSync(outputBinary)) {
       sendMessage({ type: 'error', text: '编译失败!' })
@@ -4699,3 +5127,5 @@ export function continueDebugExecutable(): boolean {
     return false
   }
 }
+
+

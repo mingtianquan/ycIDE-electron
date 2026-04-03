@@ -7,14 +7,13 @@ export interface YcmdPlatformImplementation {
   language?: string
 }
 
-export interface YcmdManifest {
-  contractVersion: string
+export interface YcmdManifestCommand {
   commandId: string
-  libraryDisplayName?: string
-  libraryVersion?: string
   displayName?: string
   summary?: string
-  library?: string
+  category?: string
+  isMember?: boolean
+  ownerTypeName?: string
   params?: Array<{ name: string; type: string; optional?: boolean }>
   returnType?: string
   implementations?: {
@@ -23,6 +22,28 @@ export interface YcmdManifest {
     linux?: YcmdPlatformImplementation
     harmony?: YcmdPlatformImplementation
   }
+}
+
+export interface YcmdManifest {
+  contractVersion: string
+  commandId?: string
+  libraryDisplayName?: string
+  libraryVersion?: string
+  displayName?: string
+  summary?: string
+  category?: string
+  library?: string
+  isMember?: boolean
+  ownerTypeName?: string
+  params?: Array<{ name: string; type: string; optional?: boolean }>
+  returnType?: string
+  implementations?: {
+    windows?: YcmdPlatformImplementation
+    macos?: YcmdPlatformImplementation
+    linux?: YcmdPlatformImplementation
+    harmony?: YcmdPlatformImplementation
+  }
+  commands?: YcmdManifestCommand[]
 }
 
 export interface YcmdManifestItem {
@@ -59,6 +80,23 @@ export interface YcmdRegistryScanResult {
   rootPath: string
   libraries: YcmdLibraryItem[]
   errors: string[]
+}
+
+interface NormalizedYcmdCommand {
+  commandId: string
+  displayName?: string
+  summary?: string
+  category?: string
+  isMember?: boolean
+  ownerTypeName?: string
+  params?: Array<{ name: string; type: string; optional?: boolean }>
+  returnType?: string
+  implementations?: {
+    windows?: YcmdPlatformImplementation
+    macos?: YcmdPlatformImplementation
+    linux?: YcmdPlatformImplementation
+    harmony?: YcmdPlatformImplementation
+  }
 }
 
 function getLibRootPath(): string {
@@ -102,34 +140,72 @@ function collectYcmdFiles(folderPath: string): string[] {
   return result
 }
 
+function normalizeManifestCommands(manifest: YcmdManifest): NormalizedYcmdCommand[] {
+  if (Array.isArray(manifest.commands) && manifest.commands.length > 0) {
+    return manifest.commands
+      .filter((item): item is YcmdManifestCommand => !!item && typeof item === 'object')
+      .map(item => ({
+        commandId: (item.commandId || '').trim(),
+        displayName: (item.displayName || '').trim(),
+        summary: (item.summary || '').trim(),
+        category: (item.category || '').trim(),
+        isMember: !!item.isMember,
+        ownerTypeName: (item.ownerTypeName || '').trim(),
+        params: item.params || [],
+        returnType: (item.returnType || '').trim(),
+        implementations: item.implementations || manifest.implementations,
+      }))
+  }
+
+  return [{
+    commandId: (manifest.commandId || '').trim(),
+    displayName: (manifest.displayName || '').trim(),
+    summary: (manifest.summary || '').trim(),
+    category: (manifest.category || '').trim(),
+    isMember: !!manifest.isMember,
+    ownerTypeName: (manifest.ownerTypeName || '').trim(),
+    params: manifest.params || [],
+    returnType: (manifest.returnType || '').trim(),
+    implementations: manifest.implementations,
+  }]
+}
+
 function validateManifest(filePath: string, manifest: YcmdManifest): string[] {
   const errors: string[] = []
   if (!manifest.contractVersion || typeof manifest.contractVersion !== 'string') {
     errors.push('缺少 contractVersion')
   }
-  if (!manifest.commandId || typeof manifest.commandId !== 'string') {
-    errors.push('缺少 commandId')
-  }
-
-  const impl = manifest.implementations
-  if (!impl || typeof impl !== 'object') {
-    errors.push('缺少 implementations')
+  const commands = normalizeManifestCommands(manifest)
+  if (commands.length === 0) {
+    errors.push('缺少 command 定义')
     return errors
   }
 
   const manifestDir = dirname(filePath)
-  const entries: Array<{ platform: string; entry?: string }> = [
-    { platform: 'windows', entry: impl.windows?.entry },
-    { platform: 'macos', entry: impl.macos?.entry },
-    { platform: 'linux', entry: impl.linux?.entry },
-    { platform: 'harmony', entry: impl.harmony?.entry },
-  ]
+  for (const command of commands) {
+    if (!command.commandId) {
+      errors.push('命令缺少 commandId')
+      continue
+    }
+    const impl = command.implementations
+    if (!impl || typeof impl !== 'object') {
+      errors.push(`命令 ${command.commandId} 缺少 implementations`)
+      continue
+    }
 
-  for (const item of entries) {
-    if (!item.entry) continue
-    const resolved = join(manifestDir, item.entry)
-    if (!existsSync(resolved)) {
-      errors.push(`实现文件不存在: ${item.platform} -> ${item.entry}`)
+    const entries: Array<{ platform: string; entry?: string }> = [
+      { platform: 'windows', entry: impl.windows?.entry },
+      { platform: 'macos', entry: impl.macos?.entry },
+      { platform: 'linux', entry: impl.linux?.entry },
+      { platform: 'harmony', entry: impl.harmony?.entry },
+    ]
+
+    for (const item of entries) {
+      if (!item.entry) continue
+      const resolved = join(manifestDir, item.entry)
+      if (!existsSync(resolved)) {
+        errors.push(`命令 ${command.commandId} 实现文件不存在: ${item.platform} -> ${item.entry}`)
+      }
     }
   }
 
@@ -222,35 +298,38 @@ export function getYcmdCommands(customRootPath?: string): YcmdResolvedCommand[] 
     for (const item of lib.manifests) {
       if (!item.valid || !item.manifest) continue
       const manifest = item.manifest
-      const commandName = (manifest.displayName || manifest.commandId || '').trim()
-      const commandId = (manifest.commandId || '').trim()
-      if (!commandName || !commandId) continue
+      const manifestCommands = normalizeManifestCommands(manifest)
+      for (const command of manifestCommands) {
+        const commandName = (command.displayName || command.commandId || '').trim()
+        const commandId = (command.commandId || '').trim()
+        if (!commandName || !commandId) continue
 
-      const params = (manifest.params || []).map(p => ({
-        name: (p.name || '').trim() || '参数',
-        type: (p.type || '').trim() || '整数型',
-        optional: !!p.optional,
-        isVariable: false,
-        isArray: false,
-        description: '',
-      }))
+        const params = (command.params || []).map(p => ({
+          name: (p.name || '').trim() || '参数',
+          type: (p.type || '').trim() || '整数型',
+          optional: !!p.optional,
+          isVariable: false,
+          isArray: false,
+          description: '',
+        }))
 
-      commands.push({
-        name: commandName,
-        englishName: commandId,
-        description: (manifest.summary || '').trim(),
-        returnType: (manifest.returnType || '').trim() || '整数型',
-        category: 'ycmd',
-        params,
-        isHidden: false,
-        isMember: false,
-        ownerTypeName: '',
-        commandIndex: -1,
-        libraryName: (manifest.libraryDisplayName || manifest.library || '').trim() || lib.name,
-        libraryFileName: lib.name,
-        source: 'ycmd',
-        manifestPath: item.filePath,
-      })
+        commands.push({
+          name: commandName,
+          englishName: commandId,
+          description: (command.summary || '').trim(),
+          returnType: (command.returnType || '').trim() || '整数型',
+          category: (command.category || '').trim() || 'ycmd',
+          params,
+          isHidden: false,
+          isMember: !!command.isMember,
+          ownerTypeName: (command.ownerTypeName || '').trim(),
+          commandIndex: -1,
+          libraryName: (manifest.libraryDisplayName || manifest.library || '').trim() || lib.name,
+          libraryFileName: lib.name,
+          source: 'ycmd',
+          manifestPath: item.filePath,
+        })
+      }
     }
   }
 

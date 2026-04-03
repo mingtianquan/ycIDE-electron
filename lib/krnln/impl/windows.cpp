@@ -1,7 +1,2 @@
-#include <string>
-
-extern "C" int krnln_message_box(const char* text, const char* title) {
-  (void)text;
-  (void)title;
-  return 0;
-}
+﻿#include "components/windows_components.cpp"
+#include "commands/windows_core_commands.cpp"

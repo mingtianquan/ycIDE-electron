@@ -7,41 +7,208 @@
       "englishName": "Window",
       "description": "基础窗口。",
       "properties": [
-        { "name": "标题", "englishName": "title", "description": "窗口标题。", "type": 0, "typeName": "文本型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "宽度", "englishName": "width", "description": "窗口宽度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "高度", "englishName": "height", "description": "窗口高度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "边框", "englishName": "border", "description": "窗口边框样式。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": ["无边框", "单线边框", "可调边框", "对话框边框", "工具窗口边框", "可调工具窗口边框"] },
-        { "name": "最大化按钮", "englishName": "maxButton", "description": "是否显示最大化按钮。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "最小化按钮", "englishName": "minButton", "description": "是否显示最小化按钮。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "控制按钮", "englishName": "controlBox", "description": "是否显示控制按钮。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "总在最前", "englishName": "topmost", "description": "是否总在最前显示。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "位置", "englishName": "startPos", "description": "窗口初始位置。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": ["手工", "居中"] }
+        {
+          "name": "标题",
+          "englishName": "title",
+          "description": "窗口标题。",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "宽度",
+          "englishName": "width",
+          "description": "窗口宽度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "高度",
+          "englishName": "height",
+          "description": "窗口高度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "边框",
+          "englishName": "border",
+          "description": "窗口边框样式。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "无边框",
+            "单线边框",
+            "可调边框",
+            "对话框边框",
+            "工具窗口边框",
+            "可调工具窗口边框"
+          ]
+        },
+        {
+          "name": "最大化按钮",
+          "englishName": "maxButton",
+          "description": "是否显示最大化按钮。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "最小化按钮",
+          "englishName": "minButton",
+          "description": "是否显示最小化按钮。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "控制按钮",
+          "englishName": "controlBox",
+          "description": "是否显示控制按钮。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "总在最前",
+          "englishName": "topmost",
+          "description": "是否总在最前显示。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "位置",
+          "englishName": "startPos",
+          "description": "窗口初始位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "手工",
+            "居中"
+          ]
+        }
       ],
       "events": [
-        { "name": "创建完毕", "description": "窗口创建完成后触发。", "args": [] },
-        { "name": "按下某键", "description": "键盘按下时触发。", "args": [
-          { "name": "键代码", "description": "虚拟键码。", "dataType": "整数型", "isByRef": false },
-          { "name": "功能键状态", "description": "键盘状态。", "dataType": "整数型", "isByRef": false }
-        ] },
-        { "name": "某键被放开", "description": "键盘抬起时触发。", "args": [
-          { "name": "键代码", "description": "虚拟键码。", "dataType": "整数型", "isByRef": false },
-          { "name": "功能键状态", "description": "键盘状态。", "dataType": "整数型", "isByRef": false }
-        ] },
-        { "name": "窗口尺寸被改变", "description": "窗口尺寸变化时触发。", "args": [
-          { "name": "宽度", "description": "新的宽度。", "dataType": "整数型", "isByRef": false },
-          { "name": "高度", "description": "新的高度。", "dataType": "整数型", "isByRef": false }
-        ] },
-        { "name": "被移动", "description": "窗口被移动时触发。", "args": [
-          { "name": "左边", "description": "窗口左边位置。", "dataType": "整数型", "isByRef": false },
-          { "name": "顶边", "description": "窗口顶边位置。", "dataType": "整数型", "isByRef": false }
-        ] },
-        { "name": "被激活", "description": "窗口激活状态变化时触发。", "args": [
-          { "name": "激活状态", "description": "激活状态。", "dataType": "整数型", "isByRef": false }
-        ] },
-        { "name": "得到焦点", "description": "窗口得到焦点时触发。", "args": [] },
-        { "name": "失去焦点", "description": "窗口失去焦点时触发。", "args": [] },
-        { "name": "即将被销毁", "description": "窗口关闭前触发。", "args": [] },
-        { "name": "被销毁", "description": "窗口销毁后触发。", "args": [] }
+        {
+          "name": "创建完毕",
+          "description": "窗口创建完成后触发。",
+          "args": []
+        },
+        {
+          "name": "按下某键",
+          "description": "键盘按下时触发。",
+          "args": [
+            {
+              "name": "键代码",
+              "description": "虚拟键码。",
+              "dataType": "整数型",
+              "isByRef": false
+            },
+            {
+              "name": "功能键状态",
+              "description": "键盘状态。",
+              "dataType": "整数型",
+              "isByRef": false
+            }
+          ]
+        },
+        {
+          "name": "某键被放开",
+          "description": "键盘抬起时触发。",
+          "args": [
+            {
+              "name": "键代码",
+              "description": "虚拟键码。",
+              "dataType": "整数型",
+              "isByRef": false
+            },
+            {
+              "name": "功能键状态",
+              "description": "键盘状态。",
+              "dataType": "整数型",
+              "isByRef": false
+            }
+          ]
+        },
+        {
+          "name": "窗口尺寸被改变",
+          "description": "窗口尺寸变化时触发。",
+          "args": [
+            {
+              "name": "宽度",
+              "description": "新的宽度。",
+              "dataType": "整数型",
+              "isByRef": false
+            },
+            {
+              "name": "高度",
+              "description": "新的高度。",
+              "dataType": "整数型",
+              "isByRef": false
+            }
+          ]
+        },
+        {
+          "name": "被移动",
+          "description": "窗口被移动时触发。",
+          "args": [
+            {
+              "name": "左边",
+              "description": "窗口左边位置。",
+              "dataType": "整数型",
+              "isByRef": false
+            },
+            {
+              "name": "顶边",
+              "description": "窗口顶边位置。",
+              "dataType": "整数型",
+              "isByRef": false
+            }
+          ]
+        },
+        {
+          "name": "被激活",
+          "description": "窗口激活状态变化时触发。",
+          "args": [
+            {
+              "name": "激活状态",
+              "description": "激活状态。",
+              "dataType": "整数型",
+              "isByRef": false
+            }
+          ]
+        },
+        {
+          "name": "得到焦点",
+          "description": "窗口得到焦点时触发。",
+          "args": []
+        },
+        {
+          "name": "失去焦点",
+          "description": "窗口失去焦点时触发。",
+          "args": []
+        },
+        {
+          "name": "即将被销毁",
+          "description": "窗口关闭前触发。",
+          "args": []
+        },
+        {
+          "name": "被销毁",
+          "description": "窗口销毁后触发。",
+          "args": []
+        }
       ]
     },
     {
@@ -51,18 +218,86 @@
       "className": "BUTTON",
       "style": "WS_CHILD | BS_PUSHBUTTON",
       "properties": [
-        { "name": "标题", "englishName": "text", "description": "按钮显示文本。", "type": 0, "typeName": "文本型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "左边", "englishName": "left", "description": "控件左边位置。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "顶边", "englishName": "top", "description": "控件顶边位置。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "宽度", "englishName": "width", "description": "控件宽度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "高度", "englishName": "height", "description": "控件高度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "可视", "englishName": "visible", "description": "是否可见。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "禁止", "englishName": "disabled", "description": "是否禁用。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] }
+        {
+          "name": "标题",
+          "englishName": "text",
+          "description": "按钮显示文本。",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "左边",
+          "englishName": "left",
+          "description": "控件左边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "顶边",
+          "englishName": "top",
+          "description": "控件顶边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "宽度",
+          "englishName": "width",
+          "description": "控件宽度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "高度",
+          "englishName": "height",
+          "description": "控件高度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "可视",
+          "englishName": "visible",
+          "description": "是否可见。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "禁止",
+          "englishName": "disabled",
+          "description": "是否禁用。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        }
       ],
       "events": [
-        { "name": "被单击", "description": "按钮被单击时触发。", "args": [] },
-        { "name": "得到焦点", "description": "按钮得到焦点时触发。", "args": [] },
-        { "name": "失去焦点", "description": "按钮失去焦点时触发。", "args": [] }
+        {
+          "name": "被单击",
+          "description": "按钮被单击时触发。",
+          "args": []
+        },
+        {
+          "name": "得到焦点",
+          "description": "按钮得到焦点时触发。",
+          "args": []
+        },
+        {
+          "name": "失去焦点",
+          "description": "按钮失去焦点时触发。",
+          "args": []
+        }
       ]
     },
     {
@@ -72,15 +307,67 @@
       "className": "STATIC",
       "style": "WS_CHILD | SS_LEFT | SS_NOTIFY",
       "properties": [
-        { "name": "标题", "englishName": "text", "description": "标签显示文本。", "type": 0, "typeName": "文本型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "左边", "englishName": "left", "description": "控件左边位置。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "顶边", "englishName": "top", "description": "控件顶边位置。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "宽度", "englishName": "width", "description": "控件宽度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "高度", "englishName": "height", "description": "控件高度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "可视", "englishName": "visible", "description": "是否可见。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] }
+        {
+          "name": "标题",
+          "englishName": "text",
+          "description": "标签显示文本。",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "左边",
+          "englishName": "left",
+          "description": "控件左边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "顶边",
+          "englishName": "top",
+          "description": "控件顶边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "宽度",
+          "englishName": "width",
+          "description": "控件宽度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "高度",
+          "englishName": "height",
+          "description": "控件高度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "可视",
+          "englishName": "visible",
+          "description": "是否可见。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        }
       ],
       "events": [
-        { "name": "被单击", "description": "标签被单击时触发。", "args": [] }
+        {
+          "name": "被单击",
+          "description": "标签被单击时触发。",
+          "args": []
+        }
       ]
     },
     {
@@ -90,18 +377,457 @@
       "className": "EDIT",
       "style": "WS_CHILD | WS_BORDER | ES_AUTOHSCROLL",
       "properties": [
-        { "name": "内容", "englishName": "text", "description": "编辑框内容。", "type": 0, "typeName": "文本型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "左边", "englishName": "left", "description": "控件左边位置。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "顶边", "englishName": "top", "description": "控件顶边位置。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "宽度", "englishName": "width", "description": "控件宽度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "高度", "englishName": "height", "description": "控件高度。", "type": 0, "typeName": "整数型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "可视", "englishName": "visible", "description": "是否可见。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] },
-        { "name": "禁止", "englishName": "disabled", "description": "是否禁用。", "type": 0, "typeName": "逻辑型", "isReadOnly": false, "pickOptions": [] }
+        {
+          "name": "内容",
+          "englishName": "text",
+          "description": "编辑框内容。",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "左边",
+          "englishName": "left",
+          "description": "控件左边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "顶边",
+          "englishName": "top",
+          "description": "控件顶边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "宽度",
+          "englishName": "width",
+          "description": "控件宽度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "高度",
+          "englishName": "height",
+          "description": "控件高度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "可视",
+          "englishName": "visible",
+          "description": "是否可见。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "禁止",
+          "englishName": "disabled",
+          "description": "是否禁用。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        }
       ],
       "events": [
-        { "name": "内容被改变", "description": "编辑框内容变化时触发。", "args": [] },
-        { "name": "得到焦点", "description": "编辑框得到焦点时触发。", "args": [] },
-        { "name": "失去焦点", "description": "编辑框失去焦点时触发。", "args": [] }
+        {
+          "name": "内容被改变",
+          "description": "编辑框内容变化时触发。",
+          "args": []
+        },
+        {
+          "name": "得到焦点",
+          "description": "编辑框得到焦点时触发。",
+          "args": []
+        },
+        {
+          "name": "失去焦点",
+          "description": "编辑框失去焦点时触发。",
+          "args": []
+        }
+      ]
+    },
+    {
+      "name": "画板",
+      "englishName": "Canvas",
+      "description": "容器窗口组件，支持 GDI 绘图相关属性与成员命令。",
+      "className": "KRNLN_CANVAS",
+      "style": "WS_CHILD | WS_BORDER",
+      "properties": [
+        {
+          "name": "左边",
+          "englishName": "left",
+          "description": "控件左边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "顶边",
+          "englishName": "top",
+          "description": "控件顶边位置。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "宽度",
+          "englishName": "width",
+          "description": "控件宽度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "高度",
+          "englishName": "height",
+          "description": "控件高度。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "标记",
+          "englishName": "tag",
+          "description": "可附加任意文本标记。",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "可视",
+          "englishName": "visible",
+          "description": "是否可见。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "禁止",
+          "englishName": "disable",
+          "description": "是否禁用。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "鼠标指针",
+          "englishName": "MousePointer",
+          "description": "自定义鼠标指针字节集。",
+          "type": 0,
+          "typeName": "字节集",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "边框",
+          "englishName": "border",
+          "description": "画板边框样式。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "无边框",
+            "凹入式",
+            "凸出式",
+            "浅凹入式",
+            "镜框式",
+            "单线边框式"
+          ]
+        },
+        {
+          "name": "画板背景色",
+          "englishName": "BackColor",
+          "description": "画板背景色。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "底图",
+          "englishName": "pic",
+          "description": "显示在背景上的图片字节集。",
+          "type": 0,
+          "typeName": "字节集",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "底图方式",
+          "englishName": "BackPicMode",
+          "description": "底图显示方式。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "图片居左上",
+            "图片平铺",
+            "图片居中"
+          ]
+        },
+        {
+          "name": "自动重画",
+          "englishName": "AutoRedraw",
+          "description": "是否保存绘图结果用于重画。",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "绘画单位",
+          "englishName": "unit",
+          "description": "绘图坐标单位。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "像素点",
+            "0.1毫米",
+            "0.01毫米",
+            "0.01英寸",
+            "0.001英寸",
+            "1/1440英寸"
+          ]
+        },
+        {
+          "name": "画笔类型",
+          "englishName": "PenStyle",
+          "description": "当前画笔类型。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "空笔",
+            "直线",
+            "划线",
+            "点线",
+            "点划线",
+            "双点划线",
+            "内直线"
+          ]
+        },
+        {
+          "name": "画出方式",
+          "englishName": "DrawRop2",
+          "description": "R2 绘图混合方式。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "黑色",
+            "非或笔",
+            "与非笔",
+            "非复制笔",
+            "与笔非",
+            "反转",
+            "异或笔",
+            "非与笔",
+            "与笔",
+            "非异或笔",
+            "无操作",
+            "或非笔",
+            "复制笔",
+            "或笔非",
+            "或笔",
+            "白色"
+          ]
+        },
+        {
+          "name": "画笔粗细",
+          "englishName": "PenWidth",
+          "description": "画笔线宽。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "画笔颜色",
+          "englishName": "PenColor",
+          "description": "画笔颜色。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "刷子类型",
+          "englishName": "BrushStyle",
+          "description": "当前刷子类型。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "空刷子",
+            "颜色刷子",
+            "右斜线",
+            "直交叉线",
+            "斜交叉线",
+            "左斜线",
+            "横线",
+            "竖线",
+            "5%色点",
+            "10%色点",
+            "20%色点",
+            "25%色点",
+            "30%色点",
+            "40%色点",
+            "50%色点",
+            "60%色点",
+            "70%色点",
+            "75%色点",
+            "80%色点",
+            "90%色点",
+            "浅色上对角线",
+            "浅色下对角线",
+            "深色上对角线",
+            "深色下对角线",
+            "宽上对角线",
+            "宽下对角线",
+            "浅色竖线",
+            "浅色横线",
+            "窄竖线",
+            "窄横线",
+            "深色竖线",
+            "深色横线",
+            "上对角虚线",
+            "下对角虚线",
+            "横虚线",
+            "竖虚线",
+            "小纸屑",
+            "大纸屑",
+            "之字形",
+            "波浪线",
+            "对角砖形",
+            "横向砖形",
+            "纺织物",
+            "方格呢",
+            "草皮",
+            "虚格线",
+            "点式菱形",
+            "瓦形",
+            "棚架",
+            "球体",
+            "小网格",
+            "大网格",
+            "小棋盘",
+            "大棋盘",
+            "空心菱形",
+            "实心菱形"
+          ]
+        },
+        {
+          "name": "刷子颜色",
+          "englishName": "BrushColor",
+          "description": "刷子颜色。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "文本颜色",
+          "englishName": "TextColor",
+          "description": "文本前景色。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "文本背景颜色",
+          "englishName": "TextBackColor",
+          "description": "文本背景色。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "字体",
+          "englishName": "font",
+          "description": "文本字体。",
+          "type": 0,
+          "typeName": "字体",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "画板宽度",
+          "englishName": "canvasWidth",
+          "description": "当前画板用户区域宽度（只读）。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": true,
+          "pickOptions": []
+        },
+        {
+          "name": "画板高度",
+          "englishName": "canvasHeight",
+          "description": "当前画板用户区域高度（只读）。",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": true,
+          "pickOptions": []
+        }
+      ],
+      "events": [
+        {
+          "name": "绘画",
+          "description": "当画板需要重绘时触发。",
+          "args": [
+            {
+              "name": "重画区左边",
+              "description": "需更新区域的左边。",
+              "dataType": "整数型",
+              "isByRef": false
+            },
+            {
+              "name": "重画区上边",
+              "description": "需更新区域的上边。",
+              "dataType": "整数型",
+              "isByRef": false
+            },
+            {
+              "name": "重画区右边",
+              "description": "需更新区域的右边。",
+              "dataType": "整数型",
+              "isByRef": false
+            },
+            {
+              "name": "重画区下边",
+              "description": "需更新区域的下边。",
+              "dataType": "整数型",
+              "isByRef": false
+            }
+          ]
+        },
+        {
+          "name": "被单击",
+          "description": "画板被单击时触发。",
+          "args": []
+        }
       ]
     }
   ]

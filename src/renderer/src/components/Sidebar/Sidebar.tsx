@@ -33,6 +33,7 @@ interface SidebarProps {
   activeFileId?: string | null
   projectDir?: string
   onEventNavigate?: (selection: SelectionTarget, eventName: string, eventArgs: Array<{ name: string; description: string; dataType: string; isByRef: boolean }>) => void
+  onCommandClick?: (commandName: string) => void
   /** 支持库加载或卸载时的回调 */
   onLibraryChange?: () => void
 }
@@ -113,11 +114,92 @@ interface LibDetail {
   version: string
   author: string
   description: string
-  commands: Array<{ name: string; category: string; description: string; isHidden: boolean }>
+  commands: Array<{
+    name: string
+    englishName?: string
+    category: string
+    description: string
+    isHidden: boolean
+    isMember?: boolean
+    ownerTypeName?: string
+  }>
   dataTypes: Array<{ name: string; description: string }>
 }
 
-function LibraryPanel(): React.JSX.Element {
+interface CommandCategoryNode {
+  key: string
+  label: string
+  children: Map<string, CommandCategoryNode>
+  commands: LibDetail['commands']
+  commandCount: number
+}
+
+function splitCategoryPath(category: string): string[] {
+  return category
+    .split(/\/|->|\\|\|/g)
+    .map(seg => seg.trim())
+    .filter(Boolean)
+}
+
+function buildCommandCategoryPath(cmd: LibDetail['commands'][number]): string[] {
+  if (cmd.isMember) {
+    const owner = (cmd.ownerTypeName || '').trim() || '\u672a\u547d\u540d\u7ec4\u4ef6'
+    return ['\u7ec4\u4ef6', owner, `${owner}\u547d\u4ee4`]
+  }
+  const path = splitCategoryPath(cmd.category || '')
+  return path.length > 0 ? path : ['\u5176\u4ed6']
+}
+
+function sortCommands(commands: LibDetail['commands']): LibDetail['commands'] {
+  return [...commands].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+}
+
+function buildCommandCategoryTree(commands: LibDetail['commands']): CommandCategoryNode[] {
+  const roots = new Map<string, CommandCategoryNode>()
+
+  const ensureNode = (bucket: Map<string, CommandCategoryNode>, label: string, key: string): CommandCategoryNode => {
+    const existing = bucket.get(label)
+    if (existing) return existing
+    const created: CommandCategoryNode = {
+      key,
+      label,
+      children: new Map<string, CommandCategoryNode>(),
+      commands: [],
+      commandCount: 0,
+    }
+    bucket.set(label, created)
+    return created
+  }
+
+  for (const cmd of commands) {
+    const path = buildCommandCategoryPath(cmd)
+    let bucket = roots
+    let node: CommandCategoryNode | null = null
+    const keyParts: string[] = []
+    for (const seg of path) {
+      keyParts.push(seg)
+      node = ensureNode(bucket, seg, keyParts.join('::'))
+      bucket = node.children
+    }
+    if (node) node.commands.push(cmd)
+  }
+
+  const toSortedArray = (bucket: Map<string, CommandCategoryNode>): CommandCategoryNode[] => {
+    const nodes = Array.from(bucket.values()).sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+    for (const node of nodes) {
+      const sortedChildren = toSortedArray(node.children)
+      node.children = new Map(sortedChildren.map(child => [child.label, child]))
+      node.commands = sortCommands(node.commands)
+      const childCount = sortedChildren.reduce((sum, child) => sum + child.commandCount, 0)
+      node.commandCount = node.commands.length + childCount
+    }
+    return nodes
+  }
+
+  return toSortedArray(roots)
+}
+
+function LibraryPanel({ onCommandClick }: { onCommandClick?: (commandName: string) => void }): React.JSX.Element {
   const [libs, setLibs] = useState<LibItem[]>([])
   const [loaded, setLoaded] = useState(false)
   const [expandedLibs, setExpandedLibs] = useState<Set<string>>(new Set())
@@ -167,6 +249,9 @@ function LibraryPanel(): React.JSX.Element {
         {loadedLibs.map(lib => {
           const isExpanded = expandedLibs.has(lib.name)
           const detail = libDetails[lib.name]
+          const commandTree = detail
+            ? buildCommandCategoryTree(detail.commands.filter(cmd => !cmd.isHidden))
+            : []
           // 按分类分组命令（排除隐藏命令）
           const catMap: Record<string, LibDetail['commands']> = {}
           if (detail) {
@@ -233,7 +318,63 @@ function LibraryPanel(): React.JSX.Element {
                     )
                   })()}
                   {/* 命令分类 */}
-                  {catNames.map(cat => {
+                  {commandTree.map(rootNode => {
+                    const renderNode = (node: CommandCategoryNode, depth: number): React.JSX.Element => {
+                      const nodeKey = `${lib.name}::${node.key}`
+                      const nodeExpanded = expandedCats.has(nodeKey)
+                      const hasChildren = node.children.size > 0 || node.commands.length > 0
+                      const paddingLeft = 24 + depth * 16
+                      const iconName = node.label === '\u7ec4\u4ef6' ? 'class' : 'folder-closed'
+
+                      return (
+                        <li key={nodeKey} role="treeitem" aria-expanded={nodeExpanded}>
+                          <div
+                            className="tree-item tree-branch"
+                            style={{ paddingLeft }}
+                            onDoubleClick={() => toggleCat(nodeKey)}
+                          >
+                            <span
+                              className={`tree-arrow ${nodeExpanded ? 'expanded' : ''}`}
+                              aria-hidden="true"
+                              onClick={(e) => { e.stopPropagation(); toggleCat(nodeKey) }}
+                            >{hasChildren ? '\u25be' : ''}</span>
+                            <Icon name={iconName} size={16} />
+                            <span className="tree-label">{node.label}</span>
+                            <span className="tree-badge">{node.commandCount}</span>
+                          </div>
+                          {nodeExpanded && (
+                            <ul role="group">
+                              {node.commands.map((cmd, index) => (
+                                <li key={`${cmd.englishName || cmd.name}-${index}`} role="treeitem">
+                                  <div
+                                    className="tree-item tree-leaf"
+                                    style={{ paddingLeft: 40 + depth * 16 }}
+                                    title={cmd.description}
+                                    tabIndex={0}
+                                    onClick={() => onCommandClick?.(cmd.name)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault()
+                                        onCommandClick?.(cmd.name)
+                                      }
+                                    }}
+                                  >
+                                    <span className="tree-arrow-placeholder" aria-hidden="true" />
+                                    <Icon name="method" size={16} />
+                                    <span className="tree-label">{cmd.name}</span>
+                                  </div>
+                                </li>
+                              ))}
+                              {Array.from(node.children.values()).map(child => renderNode(child, depth + 1))}
+                            </ul>
+                          )}
+                        </li>
+                      )
+                    }
+
+                    return renderNode(rootNode, 0)
+                  })}
+                  {false && catNames.map(cat => {
                     const catKey = `${lib.name}::${cat}`
                     const catExpanded = expandedCats.has(catKey)
                     const cmds = catMap[cat]
@@ -661,7 +802,7 @@ function PropertyPanel({ selection, windowUnits, onSelectControl, onPropertyChan
   )
 }
 
-function Sidebar({ width, onResize, selection, activeTab, onTabChange, onSelectControl, onPropertyChange, projectTree, onOpenFile, activeFileId, projectDir, onEventNavigate, onLibraryChange }: SidebarProps): React.JSX.Element {
+function Sidebar({ width, onResize, selection, activeTab, onTabChange, onSelectControl, onPropertyChange, projectTree, onOpenFile, activeFileId, projectDir, onEventNavigate, onCommandClick, onLibraryChange }: SidebarProps): React.JSX.Element {
   const [windowUnits, setWindowUnits] = useState<LibWindowUnit[]>([])
   const [projectNames, setProjectNames] = useState<string[]>([])
 
@@ -819,7 +960,7 @@ function Sidebar({ width, onResize, selection, activeTab, onTabChange, onSelectC
             <div className="sidebar-empty">暂无打开的项目</div>
           )
         )}
-        {activeTab === 'library' && <LibraryPanel />}
+        {activeTab === 'library' && <LibraryPanel onCommandClick={onCommandClick} />}
         {activeTab === 'property' && <PropertyPanel selection={selection} windowUnits={windowUnits} onSelectControl={onSelectControl} onPropertyChange={onPropertyChange} projectNames={projectNames} />}
       </div>
       {activeTab === 'property' && (

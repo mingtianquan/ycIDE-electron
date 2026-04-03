@@ -3,7 +3,7 @@
  * 扫描 lib 目录中的 *.ycmd.json 清单，并补充窗口单元元数据。
  */
 import { app } from 'electron'
-import { dirname, join } from 'path'
+import { dirname, join, resolve } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { getYcmdCommands, scanYcmdRegistry, type YcmdResolvedCommand } from './ycmd-registry'
 
@@ -136,6 +136,16 @@ interface ParsedLibraryMetadata {
   dataTypes: LibraryDataType[]
   constants: LibraryConstant[]
   windowUnits: LibraryWindowUnit[]
+}
+
+interface SupportLibraryDescriptor {
+  library?: string
+  libraryDisplayName?: string
+  artifacts?: {
+    windows?: Record<string, { staticLib?: string; dynamicLib?: string }>
+    linux?: Record<string, { staticLib?: string; dynamicLib?: string }>
+    macos?: Record<string, { staticLib?: string; dynamicLib?: string }>
+  }
 }
 
 const CORE_LIBRARY_NAME = '系统核心支持库'
@@ -1177,6 +1187,7 @@ class LibraryManager {
   private static readonly CORE_LIBRARY_FILE_NAME = 'krnln'
   private libraries: LibraryItem[] = []
   private metadataCache = new Map<string, ParsedLibraryMetadata | null>()
+  private supportDescriptorCache = new Map<string, SupportLibraryDescriptor | null>()
 
   private getConfigPath(): string {
     return join(app.getPath('userData'), 'library-state.json')
@@ -1391,6 +1402,7 @@ class LibraryManager {
     const savedSet = savedLoaded ? new Set(savedLoaded) : null
 
     this.metadataCache.clear()
+    this.supportDescriptorCache.clear()
 
     this.libraries = result.libraries.map(lib => ({
       name: lib.name,
@@ -1515,7 +1527,9 @@ class LibraryManager {
 
     const deduped = new Map<string, LibraryCommand>()
     for (const command of commands) {
-      if (!deduped.has(command.name)) deduped.set(command.name, command)
+      const owner = (command.ownerTypeName || '').trim()
+      const dedupeKey = command.isMember ? `${command.name}@@member@@${owner}` : `${command.name}@@global`
+      if (!deduped.has(dedupeKey)) deduped.set(dedupeKey, command)
     }
     return Array.from(deduped.values())
   }
@@ -1569,11 +1583,89 @@ class LibraryManager {
   }
 
   findStaticLib(_name: string, _arch: string): string | null {
-    return null
+    if (this.libraries.length === 0) this.scan()
+    const folder = this.getLibraryFolder(_name)
+    const descriptor = this.getSupportDescriptor(_name, folder)
+    if (!descriptor?.artifacts) return null
+
+    const platformKey = this.getHostPlatformKey()
+    const archKey = this.normalizeArchKey(_arch)
+    const bucket = descriptor.artifacts[platformKey]
+    if (!bucket) return null
+    const item = bucket[archKey] || bucket.x64 || bucket.x86
+    if (!item?.staticLib) return null
+    const abs = resolve(folder, item.staticLib)
+    return existsSync(abs) ? abs : null
   }
 
   getLoadedLibraryFiles(): Array<{ name: string; libraryPath: string; libName: string }> {
-    return []
+    if (this.libraries.length === 0) this.scan()
+    const platformKey = this.getHostPlatformKey()
+    const archKey = this.normalizeArchKey(process.arch)
+
+    return this.libraries
+      .filter(lib => lib.loaded)
+      .map(lib => {
+        const folder = this.getLibraryFolder(lib.name)
+        const descriptor = this.getSupportDescriptor(lib.name, folder)
+        const artifacts = descriptor?.artifacts?.[platformKey]
+        const item = artifacts ? (artifacts[archKey] || artifacts.x64 || artifacts.x86) : undefined
+        let libraryPath = ''
+        if (item?.dynamicLib) {
+          const candidate = resolve(folder, item.dynamicLib)
+          if (existsSync(candidate)) libraryPath = candidate
+        }
+        if (!libraryPath && item?.staticLib) {
+          const candidate = resolve(folder, item.staticLib)
+          if (existsSync(candidate)) libraryPath = candidate
+        }
+
+        return {
+          name: lib.name,
+          libraryPath,
+          libName: lib.libName || lib.name,
+        }
+      })
+  }
+
+  private getHostPlatformKey(): 'windows' | 'linux' | 'macos' {
+    if (process.platform === 'win32') return 'windows'
+    if (process.platform === 'darwin') return 'macos'
+    return 'linux'
+  }
+
+  private normalizeArchKey(arch: string): string {
+    const t = (arch || '').toLowerCase()
+    if (t === 'x64' || t === 'amd64') return 'x64'
+    if (t === 'x86' || t === 'ia32' || t === 'win32') return 'x86'
+    if (t === 'arm64' || t === 'aarch64') return 'arm64'
+    return t || 'x64'
+  }
+
+  private getSupportDescriptor(name: string, folderPath: string): SupportLibraryDescriptor | null {
+    if (this.supportDescriptorCache.has(name)) {
+      return this.supportDescriptorCache.get(name) ?? null
+    }
+
+    const candidates = [
+      join(folderPath, `${name}.ysup.json`),
+      join(folderPath, 'library.ysup.json'),
+    ]
+
+    for (const file of candidates) {
+      if (!existsSync(file)) continue
+      try {
+        const parsed = JSON.parse(readFileSync(file, 'utf-8')) as SupportLibraryDescriptor
+        this.supportDescriptorCache.set(name, parsed)
+        return parsed
+      } catch {
+        this.supportDescriptorCache.set(name, null)
+        return null
+      }
+    }
+
+    this.supportDescriptorCache.set(name, null)
+    return null
   }
 }
 

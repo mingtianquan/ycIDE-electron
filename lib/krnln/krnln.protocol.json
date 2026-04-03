@@ -18,6 +18,12 @@
       "unitEnglishName": "Edit",
       "className": "EDIT",
       "style": "WS_CHILD | WS_BORDER | ES_AUTOHSCROLL"
+    },
+    {
+      "unit": "画板",
+      "unitEnglishName": "Canvas",
+      "className": "KRNLN_CANVAS",
+      "style": "WS_CHILD | WS_BORDER"
     }
   ],
   "eventBindings": [
@@ -69,6 +75,368 @@
       "event": "失去焦点",
       "channel": "WM_COMMAND",
       "code": "EN_KILLFOCUS"
+    },
+    {
+      "unit": "画板",
+      "unitEnglishName": "Canvas",
+      "event": "被单击",
+      "channel": "WM_COMMAND",
+      "code": "STN_CLICKED"
+    },
+    {
+      "unit": "画板",
+      "unitEnglishName": "Canvas",
+      "event": "绘画",
+      "channel": "WM_COMMAND",
+      "code": "0x7E01"
+    }
+  ],
+  "commandBindings": [
+    {
+      "library": "krnln",
+      "commandEnglishName": "GetDiskTotalSpace",
+      "emit": "krnln_fs_disk_total_kb({0|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "GetDiskFreeSpace",
+      "emit": "krnln_fs_disk_free_kb({0|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "GetDiskLabel",
+      "emit": "krnln_fs_get_disk_label({0|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "SetDiskLabel",
+      "emit": "krnln_fs_set_disk_label({0|L\"\"}, {1|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "ChDrive",
+      "emit": "krnln_fs_change_drive({0|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "ChDir",
+      "emit": "krnln_fs_change_dir({0|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "CurDir",
+      "emit": "krnln_fs_get_current_dir()"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "MkDir",
+      "emit": "krnln_fs_create_dir({0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "RmDir",
+      "emit": "krnln_fs_remove_dir_all({0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "FileCopy",
+      "emit": "krnln_fs_copy_file({0}, {1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "FileMove",
+      "emit": "krnln_fs_move_file({0}, {1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "kill",
+      "emit": "krnln_fs_delete_file({0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "name",
+      "emit": "krnln_fs_rename_path({0}, {1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "IsFileExist",
+      "emit": "krnln_fs_file_exists({0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "dir",
+      "emit": "krnln_fs_dir({0|0}, {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "FileLen",
+      "emit": "krnln_fs_file_len({0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "GetAttr",
+      "emit": "krnln_fs_get_attr({0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "SetAttr",
+      "emit": "krnln_fs_set_attr({0}, {1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "GetTempFileName",
+      "emit": "krnln_fs_get_temp_file_name({0|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "ReadFile",
+      "emit": "krnln_fs_read_file_bin({0|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "WriteFile",
+      "emit": "krnln_fs_write_file_bins({0|L\"\"}, std::vector<YC_BIN>{ {args:1} })"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "BinLen",
+      "emit": "krnln_bin_len({0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "ToBin",
+      "emit": "krnln_to_bin({0|YC_BIN()})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "BinLeft",
+      "emit": "krnln_bin_left({0|YC_BIN()}, {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "BinRight",
+      "emit": "krnln_bin_right({0|YC_BIN()}, {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "BinMid",
+      "emit": "krnln_bin_mid({0|YC_BIN()}, {1|1}, {2|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "InBin",
+      "emit": "krnln_bin_find({0|YC_BIN()}, {1|YC_BIN()}, {2|1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "InBinRev",
+      "emit": "krnln_bin_rfind({0|YC_BIN()}, {1|YC_BIN()}, {2|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "RpBin",
+      "emit": "krnln_bin_replace({0|YC_BIN()}, {1|1}, {2|0}, {3|YC_BIN()})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "RpSubBin",
+      "emit": "krnln_bin_replace_sub({0|YC_BIN()}, {1|YC_BIN()}, {2|YC_BIN()}, {3|1}, {4|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "SpaceBin",
+      "emit": "krnln_bin_space({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "bin",
+      "emit": "krnln_bin_repeat({0|0}, {1|YC_BIN()})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "pbin",
+      "emit": "krnln_bin_from_address((long long)({0|0}), {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "p2int",
+      "emit": "krnln_ptr_to_int((long long)({0|0}))"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "p2float",
+      "emit": "krnln_ptr_to_float((long long)({0|0}))"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "p2double",
+      "emit": "krnln_ptr_to_double((long long)({0|0}))"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "GetIntInsideBin",
+      "emit": "krnln_bin_get_int({0|YC_BIN()}, {1|0}, {2|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "SetIntInsideBin",
+      "emit": "krnln_bin_set_int({0|YC_BIN()}, {1|0}, {2|0}, {3|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "?????",
+      "commandEnglishName": "krnln.drawPanel.getHdc",
+      "emit": "krnln_drawpanel_get_hdc((long long)({0|0}))"
+    },
+    {
+      "library": "krnln",
+      "command": "??",
+      "commandEnglishName": "krnln.drawPanel.clear",
+      "emit": "krnln_drawpanel_clear((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "??",
+      "commandEnglishName": "krnln.drawPanel.getPixel",
+      "emit": "krnln_drawpanel_get_pixel((long long)({0|0}), {1|0}, {2|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "??",
+      "commandEnglishName": "krnln.drawPanel.setPixel",
+      "emit": "krnln_drawpanel_set_pixel((long long)({0|0}), {1|0}, {2|0}, {3|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "???",
+      "commandEnglishName": "krnln.drawPanel.lineTo",
+      "emit": "krnln_drawpanel_line((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "???",
+      "commandEnglishName": "krnln.drawPanel.drawRect",
+      "emit": "krnln_drawpanel_draw_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "????",
+      "commandEnglishName": "krnln.drawPanel.fillRect",
+      "emit": "krnln_drawpanel_fill_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "???",
+      "commandEnglishName": "krnln.drawPanel.ellipse",
+      "emit": "krnln_drawpanel_draw_ellipse((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "?????",
+      "commandEnglishName": "krnln.drawPanel.roundRect",
+      "emit": "krnln_drawpanel_draw_round_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|8}, {6|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "?????",
+      "commandEnglishName": "krnln.drawPanel.invertRect",
+      "emit": "krnln_drawpanel_invert_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "???",
+      "commandEnglishName": "krnln.drawPanel.arcTo",
+      "emit": "krnln_drawpanel_arc((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0}, {6|0}, {7|0}, {8|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "??",
+      "commandEnglishName": "krnln.drawPanel.chord",
+      "emit": "krnln_drawpanel_chord((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0}, {6|0}, {7|0}, {8|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "??",
+      "commandEnglishName": "krnln.drawPanel.pie",
+      "emit": "krnln_drawpanel_pie((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0}, {6|0}, {7|0}, {8|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "????",
+      "commandEnglishName": "krnln.drawPanel.unitCnv",
+      "emit": "krnln_drawpanel_unit_cnv((long long)({0|0}), {1|0}, {2|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "?????",
+      "commandEnglishName": "krnln.drawPanel.setWritePos",
+      "emit": "krnln_drawpanel_set_write_pos((long long)({0|0}), {1|0x7fffffff}, {2|0x7fffffff})"
+    },
+    {
+      "library": "krnln",
+      "command": "??",
+      "commandEnglishName": "krnln.drawPanel.write",
+      "emit": "krnln_drawpanel_write((long long)({0|0}), {1|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "command": "????",
+      "commandEnglishName": "krnln.drawPanel.print",
+      "emit": "krnln_drawpanel_print((long long)({0|0}), {1|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "command": "????",
+      "commandEnglishName": "krnln.drawPanel.sprint",
+      "emit": "krnln_drawpanel_print((long long)({0|0}), {1|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "command": "????",
+      "commandEnglishName": "krnln.drawPanel.say",
+      "emit": "krnln_drawpanel_say((long long)({0|0}), {1|0x7fffffff}, {2|0x7fffffff}, {3|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "command": "???",
+      "commandEnglishName": "krnln.drawPanel.getWidth",
+      "emit": "krnln_drawpanel_get_text_width((long long)({0|0}), {1|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "command": "???",
+      "commandEnglishName": "krnln.drawPanel.getHeight",
+      "emit": "krnln_drawpanel_get_text_height((long long)({0|0}), {1|L\"\"})"
+    },
+    {
+      "library": "krnln",
+      "command": "?????",
+      "commandEnglishName": "krnln.drawPanel.drawJBRect",
+      "emit": "krnln_drawpanel_draw_jb_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|2}, {6|0}, {7|0})"
+    },
+    {
+      "library": "krnln",
+      "command": "??",
+      "commandEnglishName": "krnln.drawPanel.copy",
+      "emit": "krnln_drawpanel_copy((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, (long long)({5|0}), {6|0}, {7|0}, {8|1})"
+    },
+    {
+      "library": "krnln",
+      "command": "???",
+      "commandEnglishName": "krnln.drawPanel.drawPic",
+      "emit": "krnln_drawpanel_draw_pic((long long)({0|0}), (long long)({1|0}), {2|0}, {3|0}, {4|0}, {5|0}, {6|1})"
+    },
+    {
+      "library": "krnln",
+      "command": "?????",
+      "commandEnglishName": "krnln.drawPanel.getPicWidth",
+      "emit": "krnln_drawpanel_get_pic_width((long long)({0|0}), (long long)({1|0}))"
+    },
+    {
+      "library": "krnln",
+      "command": "?????",
+      "commandEnglishName": "krnln.drawPanel.getPicHeight",
+      "emit": "krnln_drawpanel_get_pic_height((long long)({0|0}), (long long)({1|0}))"
     }
   ]
 }
