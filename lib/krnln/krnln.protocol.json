@@ -35,20 +35,6 @@
       "code": "BN_CLICKED"
     },
     {
-      "unit": "按钮",
-      "unitEnglishName": "Button",
-      "event": "得到焦点",
-      "channel": "WM_COMMAND",
-      "code": "BN_SETFOCUS"
-    },
-    {
-      "unit": "按钮",
-      "unitEnglishName": "Button",
-      "event": "失去焦点",
-      "channel": "WM_COMMAND",
-      "code": "BN_KILLFOCUS"
-    },
-    {
       "unit": "标签",
       "unitEnglishName": "Static",
       "event": "被单击",
@@ -65,16 +51,9 @@
     {
       "unit": "编辑框",
       "unitEnglishName": "Edit",
-      "event": "得到焦点",
+      "event": "调节钮被按下",
       "channel": "WM_COMMAND",
-      "code": "EN_SETFOCUS"
-    },
-    {
-      "unit": "编辑框",
-      "unitEnglishName": "Edit",
-      "event": "失去焦点",
-      "channel": "WM_COMMAND",
-      "code": "EN_KILLFOCUS"
+      "code": "EN_VSCROLL"
     },
     {
       "unit": "画板",
