@@ -378,18 +378,9 @@
       "style": "WS_CHILD | WS_BORDER | ES_AUTOHSCROLL",
       "properties": [
         {
-          "name": "内容",
-          "englishName": "text",
-          "description": "编辑框内容。",
-          "type": 0,
-          "typeName": "文本型",
-          "isReadOnly": false,
-          "pickOptions": []
-        },
-        {
           "name": "左边",
           "englishName": "left",
-          "description": "控件左边位置。",
+          "description": "",
           "type": 0,
           "typeName": "整数型",
           "isReadOnly": false,
@@ -398,7 +389,7 @@
         {
           "name": "顶边",
           "englishName": "top",
-          "description": "控件顶边位置。",
+          "description": "",
           "type": 0,
           "typeName": "整数型",
           "isReadOnly": false,
@@ -407,7 +398,7 @@
         {
           "name": "宽度",
           "englishName": "width",
-          "description": "控件宽度。",
+          "description": "",
           "type": 0,
           "typeName": "整数型",
           "isReadOnly": false,
@@ -416,16 +407,25 @@
         {
           "name": "高度",
           "englishName": "height",
-          "description": "控件高度。",
+          "description": "",
           "type": 0,
           "typeName": "整数型",
           "isReadOnly": false,
           "pickOptions": []
         },
         {
+          "name": "标记",
+          "englishName": "tag",
+          "description": "",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
           "name": "可视",
           "englishName": "visible",
-          "description": "是否可见。",
+          "description": "",
           "type": 0,
           "typeName": "逻辑型",
           "isReadOnly": false,
@@ -433,10 +433,245 @@
         },
         {
           "name": "禁止",
-          "englishName": "disabled",
-          "description": "是否禁用。",
+          "englishName": "disable",
+          "description": "",
           "type": 0,
           "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "鼠标指针",
+          "englishName": "MousePointer",
+          "description": "",
+          "type": 0,
+          "typeName": "字节集",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "内容",
+          "englishName": "context",
+          "description": "",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "边框",
+          "englishName": "border",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "无边框",
+            "凹入式",
+            "凸出式",
+            "浅凹入式",
+            "镜框式",
+            "单线边框式"
+          ]
+        },
+        {
+          "name": "文本颜色",
+          "englishName": "TextColor",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "背景颜色",
+          "englishName": "BackColor",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "字体",
+          "englishName": "font",
+          "description": "",
+          "type": 0,
+          "typeName": "字体",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "隐藏选择",
+          "englishName": "HideSel",
+          "description": "",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "最大允许长度",
+          "englishName": "MaxAllowLength",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "是否允许多行",
+          "englishName": "AllowMultiLines",
+          "description": "",
+          "type": 0,
+          "typeName": "逻辑型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "滚动条",
+          "englishName": "ScrollBar",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "无",
+            "横向滚动条",
+            "纵向滚动条",
+            "横向及纵向滚动条"
+          ]
+        },
+        {
+          "name": "对齐方式",
+          "englishName": "AlignMode",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "左对齐",
+            "居中",
+            "右对齐"
+          ]
+        },
+        {
+          "name": "输入方式",
+          "englishName": "InputMode",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "通常方式",
+            "只读方式",
+            "密码输入",
+            "整数文本输入",
+            "小数文本输入",
+            "输入字节",
+            "输入短整数",
+            "输入整数",
+            "输入长整数",
+            "输入小数",
+            "输入双精度小数",
+            "输入日期时间"
+          ]
+        },
+        {
+          "name": "密码遮盖字符",
+          "englishName": "PasswordChar",
+          "description": "",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "转换方式",
+          "englishName": "ConvertMode",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "无",
+            "大写->小写",
+            "小写->大写"
+          ]
+        },
+        {
+          "name": "调节器方式",
+          "englishName": "spin",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": [
+            "无调节器",
+            "自动调节器",
+            "手动调节器"
+          ]
+        },
+        {
+          "name": "调节器底限值",
+          "englishName": "SpinMin",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "调节器上限值",
+          "englishName": "SpinMax",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "起始选择位置",
+          "englishName": "SelStart",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "被选择字符数",
+          "englishName": "SelLength",
+          "description": "",
+          "type": 0,
+          "typeName": "整数型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "被选择文本",
+          "englishName": "SelText",
+          "description": "",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "数据源",
+          "englishName": "DataSource",
+          "description": "",
+          "type": 0,
+          "typeName": "文本型",
+          "isReadOnly": false,
+          "pickOptions": []
+        },
+        {
+          "name": "数据列",
+          "englishName": "DataCol",
+          "description": "",
+          "type": 0,
+          "typeName": "文本型",
           "isReadOnly": false,
           "pickOptions": []
         }
@@ -444,18 +679,20 @@
       "events": [
         {
           "name": "内容被改变",
-          "description": "编辑框内容变化时触发。",
+          "description": "当编辑框的内容被修改后即产生此事件。",
           "args": []
         },
         {
-          "name": "得到焦点",
-          "description": "编辑框得到焦点时触发。",
-          "args": []
-        },
-        {
-          "name": "失去焦点",
-          "description": "编辑框失去焦点时触发。",
-          "args": []
+          "name": "调节钮被按下",
+          "description": "只有调节器方式为“手动调节器”时才会产生此事件。",
+          "args": [
+            {
+              "name": "按钮值",
+              "description": "如果按下的是调节器的向上箭头按钮，参数值为 1，否则为 -1。",
+              "dataType": "整数型",
+              "isByRef": false
+            }
+          ]
         }
       ]
     },

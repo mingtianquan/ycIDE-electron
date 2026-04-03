@@ -736,6 +736,1151 @@
         }
       ],
       "returnType": "整数型"
+    },
+    {
+      "commandId": "ife",
+      "displayName": "如果",
+      "summary": "根据逻辑条件决定是否执行后续语句，否则跳转到对应分支或结束处。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "条件",
+          "type": "逻辑型",
+          "description": "本条件值的结果决定下一步程序执行位置。"
+        }
+      ]
+    },
+    {
+      "commandId": "if",
+      "displayName": "如果真",
+      "summary": "条件为真时继续向下执行，否则直接跳到对应结束处。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "条件",
+          "type": "逻辑型",
+          "description": "本条件值的结果决定下一步程序执行位置。"
+        }
+      ]
+    },
+    {
+      "commandId": "switch",
+      "displayName": "判断",
+      "summary": "根据逻辑条件决定是否进入当前分支，否则跳转到下一分支继续判断。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "条件",
+          "type": "逻辑型",
+          "description": "本条件值的结果决定下一步程序执行位置。"
+        }
+      ]
+    },
+    {
+      "commandId": "else",
+      "displayName": "否则",
+      "summary": "条件结构的否则分支。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "default",
+      "displayName": "默认",
+      "summary": "判断结构中的默认分支。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "endife",
+      "displayName": "如果结束",
+      "summary": "结束“如果”结构。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "endif",
+      "displayName": "如果真结束",
+      "summary": "结束“如果真”结构。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "endswitch",
+      "displayName": "判断结束",
+      "summary": "结束“判断”结构。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "while",
+      "displayName": "判断循环首",
+      "summary": "条件为真时进入循环，否则跳出循环。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "条件",
+          "type": "逻辑型",
+          "description": "本条件值的结果决定是否进入循环。"
+        }
+      ]
+    },
+    {
+      "commandId": "wend",
+      "displayName": "判断循环尾",
+      "summary": "结束“判断循环首”结构并回到循环条件处。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "DoWhile",
+      "displayName": "循环判断首",
+      "summary": "先执行一次循环体，再由对应的“循环判断尾”决定是否继续。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "loop",
+      "displayName": "循环判断尾",
+      "summary": "根据逻辑条件决定是否回到对应的“循环判断首”继续循环。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "条件",
+          "type": "逻辑型",
+          "description": "本条件值的结果决定下一步程序执行位置。"
+        }
+      ]
+    },
+    {
+      "commandId": "counter",
+      "displayName": "计次循环首",
+      "summary": "按指定次数执行循环体，可选输出当前已循环次数变量。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "循环次数",
+          "type": "整数型",
+          "description": "指定执行循环体的次数。"
+        },
+        {
+          "name": "已循环次数记录变量",
+          "type": "整数型",
+          "optional": true,
+          "isVariable": true,
+          "description": "记录当前已进入循环的次数。"
+        }
+      ]
+    },
+    {
+      "commandId": "CounterLoop",
+      "displayName": "计次循环尾",
+      "summary": "结束“计次循环首”结构。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "for",
+      "displayName": "变量循环首",
+      "summary": "利用循环变量执行循环，可指定起始值、目标值和递增值。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "变量起始值",
+          "type": "整数型",
+          "description": "循环变量初始值。"
+        },
+        {
+          "name": "变量目标值",
+          "type": "整数型",
+          "description": "循环变量目标值。"
+        },
+        {
+          "name": "变量递增值",
+          "type": "整数型",
+          "description": "每轮循环递增或递减值。"
+        },
+        {
+          "name": "循环变量",
+          "type": "整数型",
+          "optional": true,
+          "isVariable": true,
+          "description": "循环变量，可省略。"
+        }
+      ]
+    },
+    {
+      "commandId": "next",
+      "displayName": "变量循环尾",
+      "summary": "结束“变量循环首”结构。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "continue",
+      "displayName": "到循环尾",
+      "summary": "转移当前程序执行位置到当前所处循环体的循环尾语句处。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "break",
+      "displayName": "跳出循环",
+      "summary": "转移当前程序执行位置到当前所处循环体结束后的下一条语句。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "return",
+      "displayName": "返回",
+      "summary": "返回到调用本子程序的下一条语句处。当前编译器暂不支持返回值类型推导。",
+      "category": "流程控制",
+      "params": [
+        {
+          "name": "返回到调用方的值",
+          "type": "通用型",
+          "optional": true,
+          "description": "可选。当前版本仅保留语义，不参与返回值编译。"
+        }
+      ]
+    },
+    {
+      "commandId": "end",
+      "displayName": "结束",
+      "summary": "结束当前程序运行。",
+      "category": "流程控制",
+      "params": []
+    },
+    {
+      "commandId": "equal",
+      "displayName": "等于",
+      "summary": "被比较值与比较值相同时返回真，否则返回假。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被比较值",
+          "type": "通用型",
+          "description": "参与比较的值。"
+        },
+        {
+          "name": "比较值",
+          "type": "通用型",
+          "description": "用于比较的值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "notEqual",
+      "displayName": "不等于",
+      "summary": "被比较值与比较值不相同时返回真，否则返回假。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被比较值",
+          "type": "通用型",
+          "description": "参与比较的值。"
+        },
+        {
+          "name": "比较值",
+          "type": "通用型",
+          "description": "用于比较的值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "less",
+      "displayName": "小于",
+      "summary": "被比较值小于比较值时返回真。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被比较值",
+          "type": "通用型",
+          "description": "参与比较的值。"
+        },
+        {
+          "name": "比较值",
+          "type": "通用型",
+          "description": "用于比较的值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "greater",
+      "displayName": "大于",
+      "summary": "被比较值大于比较值时返回真。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被比较值",
+          "type": "通用型",
+          "description": "参与比较的值。"
+        },
+        {
+          "name": "比较值",
+          "type": "通用型",
+          "description": "用于比较的值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "lessOrEqual",
+      "displayName": "小于或等于",
+      "summary": "被比较值小于或等于比较值时返回真。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被比较值",
+          "type": "通用型",
+          "description": "参与比较的值。"
+        },
+        {
+          "name": "比较值",
+          "type": "通用型",
+          "description": "用于比较的值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "greaterOrEqual",
+      "displayName": "大于或等于",
+      "summary": "被比较值大于或等于比较值时返回真。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被比较值",
+          "type": "通用型",
+          "description": "参与比较的值。"
+        },
+        {
+          "name": "比较值",
+          "type": "通用型",
+          "description": "用于比较的值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "like",
+      "displayName": "近似等于",
+      "summary": "比较文本出现在被比较文本首部时返回真。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被比较文本",
+          "type": "文本型",
+          "description": "参与比较的文本。"
+        },
+        {
+          "name": "比较文本",
+          "type": "文本型",
+          "description": "用于比较的文本。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "and",
+      "displayName": "并且",
+      "summary": "所有逻辑值都为真时返回真。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "逻辑值一",
+          "type": "逻辑型",
+          "description": "参与运算的逻辑值。"
+        },
+        {
+          "name": "逻辑值二",
+          "type": "逻辑型",
+          "description": "参与运算的逻辑值。",
+          "repeatable": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "or",
+      "displayName": "或者",
+      "summary": "任一逻辑值为真时返回真。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "逻辑值一",
+          "type": "逻辑型",
+          "description": "参与运算的逻辑值。"
+        },
+        {
+          "name": "逻辑值二",
+          "type": "逻辑型",
+          "description": "参与运算的逻辑值。",
+          "repeatable": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "not",
+      "displayName": "取反",
+      "summary": "将逻辑值取反。",
+      "category": "逻辑比较",
+      "params": [
+        {
+          "name": "被反转的逻辑值",
+          "type": "逻辑型",
+          "description": "需要取反的逻辑值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "OutputDebugText",
+      "displayName": "输出调试文本",
+      "summary": "仅在调试版中输出调试文本行，发布版直接跳过。",
+      "category": "程序调试",
+      "params": [
+        {
+          "name": "准备输出的调试文本信息",
+          "type": "通用型",
+          "description": "要输出的调试文本或值。",
+          "repeatable": true
+        }
+      ]
+    },
+    {
+      "commandId": "stop",
+      "displayName": "暂停",
+      "summary": "仅在调试版中执行，相当于命中断点。",
+      "category": "程序调试",
+      "params": []
+    },
+    {
+      "commandId": "assert",
+      "displayName": "检查",
+      "summary": "仅在调试版中执行，条件为假时暂停并警示。",
+      "category": "程序调试",
+      "params": [
+        {
+          "name": "被校验的条件",
+          "type": "逻辑型",
+          "description": "需要校验的条件。"
+        }
+      ]
+    },
+    {
+      "commandId": "IsDebugVer",
+      "displayName": "是否为调试版",
+      "summary": "当前程序为调试版时返回真，否则返回假。",
+      "category": "程序调试",
+      "params": [],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "GetDiskTotalSpace",
+      "displayName": "取磁盘总空间",
+      "summary": "返回以 1024 字节为单位的指定磁盘全部空间；失败返回 -1。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "磁盘驱动器字符",
+          "type": "文本型",
+          "optional": true,
+          "description": "类似“A”“C”，只取首字符；省略时使用当前驱动器。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "GetDiskFreeSpace",
+      "displayName": "取磁盘剩余空间",
+      "summary": "返回以 1024 字节为单位的指定磁盘剩余空间；失败返回 -1。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "磁盘驱动器字符",
+          "type": "文本型",
+          "optional": true,
+          "description": "类似“A”“C”，只取首字符；省略时使用当前驱动器。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "GetDiskLabel",
+      "displayName": "取磁盘卷标",
+      "summary": "返回指定磁盘的卷标文本；失败返回空文本。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "磁盘驱动器字符",
+          "type": "文本型",
+          "optional": true,
+          "description": "类似“A”“C”，只取首字符；省略时使用当前驱动器。"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "SetDiskLabel",
+      "displayName": "置磁盘卷标",
+      "summary": "设置指定磁盘的卷标文本。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "磁盘驱动器字符",
+          "type": "文本型",
+          "optional": true,
+          "description": "类似“A”“C”，只取首字符；省略时使用当前驱动器。"
+        },
+        {
+          "name": "欲置入的卷标文本",
+          "type": "文本型",
+          "description": "新的卷标文本。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "ChDrive",
+      "displayName": "改变驱动器",
+      "summary": "改变当前的缺省驱动器。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲改变到的驱动器",
+          "type": "文本型",
+          "description": "类似“A”“C”，只取首字符。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "ChDir",
+      "displayName": "改变目录",
+      "summary": "改变当前目录。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲改变到的目录",
+          "type": "文本型",
+          "description": "目标目录。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "CurDir",
+      "displayName": "取当前目录",
+      "summary": "返回当前目录；失败返回空文本。",
+      "category": "磁盘操作",
+      "params": [],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "MkDir",
+      "displayName": "创建目录",
+      "summary": "创建目录。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲创建的目录名称",
+          "type": "文本型",
+          "description": "要创建的目录。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "RmDir",
+      "displayName": "删除目录",
+      "summary": "递归删除目录及其中的所有文件和子目录。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲删除的目录名称",
+          "type": "文本型",
+          "description": "要删除的目录。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "FileCopy",
+      "displayName": "复制文件",
+      "summary": "复制文件。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "被复制的文件名",
+          "type": "文本型",
+          "description": "源文件。"
+        },
+        {
+          "name": "复制到的文件名",
+          "type": "文本型",
+          "description": "目标文件。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "FileMove",
+      "displayName": "移动文件",
+      "summary": "移动文件。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "被移动的文件",
+          "type": "文本型",
+          "description": "源文件。"
+        },
+        {
+          "name": "移动到的位置",
+          "type": "文本型",
+          "description": "目标位置。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "kill",
+      "displayName": "删除文件",
+      "summary": "删除文件。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲删除的文件名",
+          "type": "文本型",
+          "description": "目标文件。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "name",
+      "displayName": "文件更名",
+      "summary": "重命名文件或目录。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲更名的原文件或目录名",
+          "type": "文本型",
+          "description": "原路径。"
+        },
+        {
+          "name": "欲更改为的现文件或目录名",
+          "type": "文本型",
+          "description": "新路径。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "IsFileExist",
+      "displayName": "文件是否存在",
+      "summary": "判断指定文件是否存在。存在返回真，否则返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲测试的文件名称",
+          "type": "文本型",
+          "description": "目标文件。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "dir",
+      "displayName": "寻找文件",
+      "summary": "按通配符顺序枚举匹配的文件或目录名；第一次调用应提供匹配模式。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲寻找的文件或目录名称",
+          "type": "文本型",
+          "optional": true,
+          "description": "支持 * 和 ?；后续继续枚举时可省略。"
+        },
+        {
+          "name": "欲寻找文件的属性",
+          "type": "整数型",
+          "optional": true,
+          "description": "Windows 文件属性过滤。省略时默认匹配非目录项。"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "FileLen",
+      "displayName": "取文件尺寸",
+      "summary": "返回文件长度，单位字节；文件不存在时返回 -1。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "文件名",
+          "type": "文本型",
+          "description": "目标文件。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "GetAttr",
+      "displayName": "取文件属性",
+      "summary": "返回文件或目录属性；失败返回 -1。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "文件名",
+          "type": "文本型",
+          "description": "目标文件或目录。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "SetAttr",
+      "displayName": "置文件属性",
+      "summary": "设置文件属性。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "欲设置其属性的文件名称",
+          "type": "文本型",
+          "description": "目标文件或目录。"
+        },
+        {
+          "name": "欲设置为的属性值",
+          "type": "整数型",
+          "description": "Windows 文件属性值。"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "GetTempFileName",
+      "displayName": "取临时文件名",
+      "summary": "返回一个在目标目录中不存在的 .TMP 全路径文件名。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "目录名",
+          "type": "文本型",
+          "optional": true,
+          "description": "省略时使用系统临时目录。"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "BinLen",
+      "displayName": "取字节集长度",
+      "summary": "取字节集型数据的长度。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "字节集数据",
+          "type": "字节集",
+          "description": "欲检查长度的字节集数据。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "ToBin",
+      "displayName": "到字节集",
+      "summary": "将指定数据转换为字节集后返回转换结果。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "欲转换为字节集的数据",
+          "type": "通用型",
+          "description": "只能为基本数据类型数据或数值型数组。当前版本优先支持基础标量与文本。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "BinLeft",
+      "displayName": "取字节集左边",
+      "summary": "返回字节集左边指定数量的字节。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "欲取其部分的字节集",
+          "type": "字节集",
+          "description": "源字节集。"
+        },
+        {
+          "name": "欲取出字节的数目",
+          "type": "整数型",
+          "description": "要取出的字节数。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "BinRight",
+      "displayName": "取字节集右边",
+      "summary": "返回字节集右边指定数量的字节。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "欲取其部分的字节集",
+          "type": "字节集",
+          "description": "源字节集。"
+        },
+        {
+          "name": "欲取出字节的数目",
+          "type": "整数型",
+          "description": "要取出的字节数。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "BinMid",
+      "displayName": "取字节集中间",
+      "summary": "返回字节集中从指定位置开始的指定数量字节。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "欲取其部分的字节集",
+          "type": "字节集",
+          "description": "源字节集。"
+        },
+        {
+          "name": "起始取出位置",
+          "type": "整数型",
+          "description": "从 1 开始。"
+        },
+        {
+          "name": "欲取出字节的数目",
+          "type": "整数型",
+          "description": "要取出的字节数。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "InBin",
+      "displayName": "寻找字节集",
+      "summary": "返回一个字节集在另一字节集中最先出现的位置，位置值从 1 开始；未找到返回 -1。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "被搜寻的字节集",
+          "type": "字节集",
+          "description": "源字节集。"
+        },
+        {
+          "name": "欲寻找的字节集",
+          "type": "字节集",
+          "description": "待查找的子字节集。"
+        },
+        {
+          "name": "起始搜寻位置",
+          "type": "整数型",
+          "optional": true,
+          "description": "从 1 开始。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "InBinRev",
+      "displayName": "倒找字节集",
+      "summary": "返回一个字节集在另一字节集中最后出现的位置，位置值从 1 开始；未找到返回 -1。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "被搜寻的字节集",
+          "type": "字节集",
+          "description": "源字节集。"
+        },
+        {
+          "name": "欲寻找的字节集",
+          "type": "字节集",
+          "description": "待查找的子字节集。"
+        },
+        {
+          "name": "起始搜寻位置",
+          "type": "整数型",
+          "optional": true,
+          "description": "从 1 开始。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "RpBin",
+      "displayName": "字节集替换",
+      "summary": "将字节集指定位置和长度的部分替换为另一字节集，并返回替换后的结果。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "欲替换其部分的字节集",
+          "type": "字节集",
+          "description": "源字节集。"
+        },
+        {
+          "name": "起始替换位置",
+          "type": "整数型",
+          "description": "从 1 开始。"
+        },
+        {
+          "name": "替换长度",
+          "type": "整数型",
+          "description": "欲替换的字节数。"
+        },
+        {
+          "name": "用作替换的字节集",
+          "type": "字节集",
+          "optional": true,
+          "description": "省略时删除指定部分。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "RpSubBin",
+      "displayName": "子字节集替换",
+      "summary": "返回一个字节集，其中指定子字节集已被替换为另一子字节集。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "欲被替换的字节集",
+          "type": "字节集",
+          "description": "源字节集。"
+        },
+        {
+          "name": "欲被替换的子字节集",
+          "type": "字节集",
+          "description": "待查找并替换的子字节集。"
+        },
+        {
+          "name": "用作替换的子字节集",
+          "type": "字节集",
+          "optional": true,
+          "description": "省略时默认为空字节集。"
+        },
+        {
+          "name": "进行替换的起始位置",
+          "type": "整数型",
+          "optional": true,
+          "description": "从 1 开始。"
+        },
+        {
+          "name": "替换进行的次数",
+          "type": "整数型",
+          "optional": true,
+          "description": "省略时替换所有可能位置。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "SpaceBin",
+      "displayName": "取空白字节集",
+      "summary": "返回具有特定数目 0 字节的字节集。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "零字节数目",
+          "type": "整数型",
+          "description": "返回字节集的字节数。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "bin",
+      "displayName": "取重复字节集",
+      "summary": "返回包含指定次数字节集重复结果的字节集。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "重复次数",
+          "type": "整数型",
+          "description": "重复次数。"
+        },
+        {
+          "name": "待重复的字节集",
+          "type": "字节集",
+          "description": "待重复的字节集。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "pbin",
+      "displayName": "指针到字节集",
+      "summary": "返回指定内存指针地址处的一段数据。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "内存数据指针",
+          "type": "整数型",
+          "description": "指向内存地址的指针值。"
+        },
+        {
+          "name": "内存数据长度",
+          "type": "整数型",
+          "description": "要读取的字节数。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "p2int",
+      "displayName": "指针到整数",
+      "summary": "返回指定内存指针地址处的一个整数值。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "内存数据指针",
+          "type": "整数型",
+          "description": "指向内存地址的指针值。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "p2float",
+      "displayName": "指针到小数",
+      "summary": "返回指定内存指针地址处的一个小数值。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "内存数据指针",
+          "type": "整数型",
+          "description": "指向内存地址的指针值。"
+        }
+      ],
+      "returnType": "小数型"
+    },
+    {
+      "commandId": "p2double",
+      "displayName": "指针到双精度小数",
+      "summary": "返回指定内存指针地址处的一个双精度小数值。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "内存数据指针",
+          "type": "整数型",
+          "description": "指向内存地址的指针值。"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "GetIntInsideBin",
+      "displayName": "取字节集内整数",
+      "summary": "返回字节集中所指定偏移处的整数值。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "待处理的字节集",
+          "type": "字节集",
+          "description": "待处理的字节集。"
+        },
+        {
+          "name": "欲获取整数所处偏移",
+          "type": "整数型",
+          "description": "整数值在字节集中的偏移位置。"
+        },
+        {
+          "name": "是否反转字节序",
+          "type": "逻辑型",
+          "optional": true,
+          "description": "省略时默认为假。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "SetIntInsideBin",
+      "displayName": "置字节集内整数",
+      "summary": "设置字节集中所指定偏移处的整数值。",
+      "category": "字节集操作",
+      "params": [
+        {
+          "name": "待处理的字节集",
+          "type": "字节集",
+          "isVariable": true,
+          "description": "待处理的字节集变量。"
+        },
+        {
+          "name": "欲设置整数所处偏移",
+          "type": "整数型",
+          "description": "整数值在字节集中的偏移位置。"
+        },
+        {
+          "name": "欲设置的整数值",
+          "type": "整数型",
+          "description": "要写入的整数值。"
+        },
+        {
+          "name": "是否反转字节序",
+          "type": "逻辑型",
+          "optional": true,
+          "description": "省略时默认为假。"
+        }
+      ]
+    },
+    {
+      "commandId": "ReadFile",
+      "displayName": "读入文件",
+      "summary": "返回一个字节集，其中包含指定文件的所有数据。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "文件名",
+          "type": "文本型",
+          "description": "要读入的文件路径。"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "WriteFile",
+      "displayName": "写到文件",
+      "summary": "将一个或数个字节集顺序写到指定文件中，文件原有内容被覆盖。成功返回真，失败返回假。",
+      "category": "磁盘操作",
+      "params": [
+        {
+          "name": "文件名",
+          "type": "文本型",
+          "description": "目标文件路径。"
+        },
+        {
+          "name": "欲写入文件的数据",
+          "type": "字节集",
+          "description": "要顺序写入的字节集数据。",
+          "repeatable": true
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "krnln.Edit.AddText",
+      "displayName": "加入文本",
+      "summary": "将指定文本加入到编辑框内容的尾部。",
+      "category": "编辑框成员命令",
+      "isMember": true,
+      "ownerTypeName": "编辑框",
+      "params": [
+        {
+          "name": "欲加入文本",
+          "type": "文本型",
+          "repeatable": true
+        }
+      ],
+      "returnType": ""
     }
   ]
 }

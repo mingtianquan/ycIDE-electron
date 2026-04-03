@@ -14,7 +14,7 @@ export interface YcmdManifestCommand {
   category?: string
   isMember?: boolean
   ownerTypeName?: string
-  params?: Array<{ name: string; type: string; optional?: boolean }>
+  params?: Array<{ name: string; type: string; optional?: boolean; isVariable?: boolean; isArray?: boolean; description?: string; repeatable?: boolean }>
   returnType?: string
   implementations?: {
     windows?: YcmdPlatformImplementation
@@ -35,7 +35,7 @@ export interface YcmdManifest {
   library?: string
   isMember?: boolean
   ownerTypeName?: string
-  params?: Array<{ name: string; type: string; optional?: boolean }>
+  params?: Array<{ name: string; type: string; optional?: boolean; isVariable?: boolean; isArray?: boolean; description?: string; repeatable?: boolean }>
   returnType?: string
   implementations?: {
     windows?: YcmdPlatformImplementation
@@ -59,7 +59,7 @@ export interface YcmdResolvedCommand {
   description: string
   returnType: string
   category: string
-  params: Array<{ name: string; type: string; optional: boolean; isVariable: boolean; isArray: boolean; description: string }>
+  params: Array<{ name: string; type: string; optional: boolean; isVariable: boolean; isArray: boolean; description: string; repeatable?: boolean }>
   isHidden: boolean
   isMember: boolean
   ownerTypeName: string
@@ -89,7 +89,7 @@ interface NormalizedYcmdCommand {
   category?: string
   isMember?: boolean
   ownerTypeName?: string
-  params?: Array<{ name: string; type: string; optional?: boolean }>
+  params?: Array<{ name: string; type: string; optional?: boolean; isVariable?: boolean; isArray?: boolean; description?: string; repeatable?: boolean }>
   returnType?: string
   implementations?: {
     windows?: YcmdPlatformImplementation
@@ -308,9 +308,10 @@ export function getYcmdCommands(customRootPath?: string): YcmdResolvedCommand[] 
           name: (p.name || '').trim() || '参数',
           type: (p.type || '').trim() || '整数型',
           optional: !!p.optional,
-          isVariable: false,
-          isArray: false,
-          description: '',
+          isVariable: !!p.isVariable,
+          isArray: !!p.isArray,
+          description: (p.description || '').trim(),
+          repeatable: !!p.repeatable,
         }))
 
         commands.push({
