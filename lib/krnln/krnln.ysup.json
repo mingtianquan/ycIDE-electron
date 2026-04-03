@@ -186,43 +186,43 @@
     },
     {
       "commandId": "krnln.drawPanel.drawJBRect",
-      "displayName": "?????",
+      "displayName": "画九宫格矩形",
       "entry": "krnln_drawpanel_draw_jb_rect",
-      "returnType": "???",
+      "returnType": "逻辑型",
       "isMember": true,
-      "ownerTypeName": "??"
+      "ownerTypeName": "画板"
     },
     {
       "commandId": "krnln.drawPanel.copy",
-      "displayName": "??",
+      "displayName": "复制",
       "entry": "krnln_drawpanel_copy",
-      "returnType": "???",
+      "returnType": "逻辑型",
       "isMember": true,
-      "ownerTypeName": "??"
+      "ownerTypeName": "画板"
     },
     {
       "commandId": "krnln.drawPanel.drawPic",
-      "displayName": "???",
+      "displayName": "画图片",
       "entry": "krnln_drawpanel_draw_pic",
-      "returnType": "???",
+      "returnType": "逻辑型",
       "isMember": true,
-      "ownerTypeName": "??"
+      "ownerTypeName": "画板"
     },
     {
       "commandId": "krnln.drawPanel.getPicWidth",
-      "displayName": "?????",
+      "displayName": "取图片宽度",
       "entry": "krnln_drawpanel_get_pic_width",
-      "returnType": "???",
+      "returnType": "整数型",
       "isMember": true,
-      "ownerTypeName": "??"
+      "ownerTypeName": "画板"
     },
     {
       "commandId": "krnln.drawPanel.getPicHeight",
-      "displayName": "?????",
+      "displayName": "取图片高度",
       "entry": "krnln_drawpanel_get_pic_height",
-      "returnType": "???",
+      "returnType": "整数型",
       "isMember": true,
-      "ownerTypeName": "??"
+      "ownerTypeName": "画板"
     }
   ],
   "components": [
