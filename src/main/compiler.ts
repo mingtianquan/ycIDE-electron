@@ -4683,6 +4683,16 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
       args.push(resourceBuild.objectFilePath)
     }
 
+    const resourceBuild = await compileProjectResources(project, targetPlatform, targetArch, tempDir, zigPath, editorFiles)
+    if (!resourceBuild.success) {
+      result.errorCount++
+      result.elapsedMs = Date.now() - startTime
+      return result
+    }
+    if (resourceBuild.objectFilePath) {
+      args.push(resourceBuild.objectFilePath)
+    }
+
     // 项目类型
     const resolvedStaticLibs = libsToLink.map(lib => ({
       lib,
