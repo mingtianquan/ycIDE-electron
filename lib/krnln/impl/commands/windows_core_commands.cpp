@@ -441,3 +441,470 @@ int krnln_bin_set_int(YC_BIN& value, int offset, int data, int reverseBytes) {
   memcpy(value.data() + pos, &out, sizeof(int));
   return 1;
 }
+
+// Forward declarations for text functions
+wchar_t* krnln_text_from_utf8(const YC_BIN& utf8Data);
+
+// Text operation functions
+static int krnln_text_char_count(const wchar_t* text) {
+  if (!text) return 0;
+  int count = 0;
+  for (int i = 0; text[i]; i++) count++;
+  return count;
+}
+
+static wchar_t krnln_text_char_at(const wchar_t* text, int pos) {
+  if (!text || pos < 1) return L'\0';
+  return text[pos - 1];
+}
+
+extern "C" int krnln_text_len(const wchar_t* text) {
+  if (!text) return 0;
+  return krnln_text_char_count(text);
+}
+
+int krnln_text_len(int value) {
+  std::wstring text = std::to_wstring(value);
+  return static_cast<int>(text.length());
+}
+
+int krnln_text_len(double value) {
+  wchar_t buf[64];
+  swprintf(buf, sizeof(buf) / sizeof(wchar_t), L"%.15g", value);
+  return static_cast<int>(wcslen(buf));
+}
+
+int krnln_text_len(bool value) {
+  return value ? 2 : 2;  // "即真" 和 "即假" 都是 2 个字符
+}
+
+int krnln_text_len(const YC_BIN& value) {
+  if (value.empty()) return 0;
+  wchar_t* text = krnln_text_from_utf8(value);
+  return krnln_text_char_count(text);
+}
+
+extern "C" wchar_t* krnln_text_left(const wchar_t* text, int count) {
+  if (!text || count <= 0) return krnln_store_text(L"");
+  std::wstring result = text;
+  if (count < static_cast<int>(result.length())) {
+    result = result.substr(0, count);
+  }
+  return krnln_store_text(result);
+}
+
+wchar_t* krnln_text_left(int value, int count) {
+  std::wstring text = std::to_wstring(value);
+  return krnln_text_left(text.c_str(), count);
+}
+
+wchar_t* krnln_text_left(double value, int count) {
+  wchar_t buf[64];
+  swprintf(buf, sizeof(buf) / sizeof(wchar_t), L"%.15g", value);
+  return krnln_text_left(buf, count);
+}
+
+wchar_t* krnln_text_left(bool value, int count) {
+  std::wstring text = value ? L"即真" : L"即假";
+  return krnln_text_left(text.c_str(), count);
+}
+
+wchar_t* krnln_text_left(const YC_BIN& value, int count) {
+  if (value.empty()) return krnln_store_text(L"");
+  wchar_t* text = krnln_text_from_utf8(value);
+  return krnln_text_left(text, count);
+}
+
+extern "C" wchar_t* krnln_text_right(const wchar_t* text, int count) {
+  if (!text || count <= 0) return krnln_store_text(L"");
+  std::wstring result = text;
+  if (count >= static_cast<int>(result.length())) {
+    return krnln_store_text(result);
+  }
+  return krnln_store_text(result.substr(result.length() - count));
+}
+
+wchar_t* krnln_text_right(int value, int count) {
+  std::wstring text = std::to_wstring(value);
+  return krnln_text_right(text.c_str(), count);
+}
+
+wchar_t* krnln_text_right(double value, int count) {
+  wchar_t buf[64];
+  swprintf(buf, sizeof(buf) / sizeof(wchar_t), L"%.15g", value);
+  return krnln_text_right(buf, count);
+}
+
+wchar_t* krnln_text_right(bool value, int count) {
+  std::wstring text = value ? L"即真" : L"即假";
+  return krnln_text_right(text.c_str(), count);
+}
+
+wchar_t* krnln_text_right(const YC_BIN& value, int count) {
+  if (value.empty()) return krnln_store_text(L"");
+  wchar_t* text = krnln_text_from_utf8(value);
+  return krnln_text_right(text, count);
+}
+
+extern "C" wchar_t* krnln_text_mid(const wchar_t* text, int startPos, int count) {
+  if (!text || startPos < 1 || count <= 0) return krnln_store_text(L"");
+  std::wstring result = text;
+  size_t start = static_cast<size_t>(startPos - 1);
+  if (start >= result.length()) return krnln_store_text(L"");
+  return krnln_store_text(result.substr(start, count));
+}
+
+wchar_t* krnln_text_mid(int value, int startPos, int count) {
+  std::wstring text = std::to_wstring(value);
+  return krnln_text_mid(text.c_str(), startPos, count);
+}
+
+wchar_t* krnln_text_mid(double value, int startPos, int count) {
+  wchar_t buf[64];
+  swprintf(buf, sizeof(buf) / sizeof(wchar_t), L"%.15g", value);
+  return krnln_text_mid(buf, startPos, count);
+}
+
+wchar_t* krnln_text_mid(bool value, int startPos, int count) {
+  std::wstring text = value ? L"即真" : L"即假";
+  return krnln_text_mid(text.c_str(), startPos, count);
+}
+
+wchar_t* krnln_text_mid(const YC_BIN& value, int startPos, int count) {
+  if (value.empty()) return krnln_store_text(L"");
+  wchar_t* text = krnln_text_from_utf8(value);
+  return krnln_text_mid(text, startPos, count);
+}
+
+extern "C" wchar_t* krnln_text_chr(int code) {
+  wchar_t ch = static_cast<wchar_t>(code & 0xFF);
+  wchar_t buf[2] = {ch, L'\0'};
+  return krnln_store_text(buf);
+}
+
+extern "C" int krnln_text_asc(const wchar_t* text, int pos) {
+  if (!text) return 0;
+  if (pos <= 0) pos = 1;
+  wchar_t ch = krnln_text_char_at(text, pos);
+  return ch ? static_cast<int>(static_cast<unsigned char>(ch)) : 0;
+}
+
+extern "C" int krnln_text_instr(const wchar_t* haystack, const wchar_t* needle, int startPos, int ignoreCase) {
+  if (!haystack || !needle || startPos < 1) return -1;
+  std::wstring hay = haystack;
+  std::wstring need = needle;
+  if (need.empty()) return startPos;
+  
+  size_t start = static_cast<size_t>(startPos - 1);
+  if (start >= hay.length()) return -1;
+  
+  if (ignoreCase) {
+    std::transform(hay.begin(), hay.end(), hay.begin(), ::towlower);
+    std::transform(need.begin(), need.end(), need.begin(), ::towlower);
+  }
+  
+  size_t pos = hay.find(need, start);
+  return pos == std::string::npos ? -1 : static_cast<int>(pos) + 1;
+}
+
+extern "C" int krnln_text_instrrev(const wchar_t* haystack, const wchar_t* needle, int startPos, int ignoreCase) {
+  if (!haystack || !needle) return -1;
+  std::wstring hay = haystack;
+  std::wstring need = needle;
+  if (need.empty()) return hay.empty() ? 1 : (startPos > 0 ? startPos : static_cast<int>(hay.length()));
+  
+  size_t start = startPos > 0 ? static_cast<size_t>(startPos - 1) : hay.length() - 1;
+  if (start >= hay.length() && startPos > 0) start = hay.length();
+  
+  if (ignoreCase) {
+    std::transform(hay.begin(), hay.end(), hay.begin(), ::towlower);
+    std::transform(need.begin(), need.end(), need.begin(), ::towlower);
+  }
+  
+  size_t pos = hay.rfind(need, start);
+  return pos == std::string::npos ? -1 : static_cast<int>(pos) + 1;
+}
+
+extern "C" wchar_t* krnln_text_ucase(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring result = text;
+  std::transform(result.begin(), result.end(), result.begin(), ::towupper);
+  return krnln_store_text(result);
+}
+
+wchar_t* krnln_text_ucase(int value) {
+  std::wstring text = std::to_wstring(value);
+  return krnln_text_ucase(text.c_str());
+}
+
+wchar_t* krnln_text_ucase(double value) {
+  wchar_t buf[64];
+  swprintf(buf, sizeof(buf) / sizeof(wchar_t), L"%.15g", value);
+  return krnln_text_ucase(buf);
+}
+
+wchar_t* krnln_text_ucase(const YC_BIN& value) {
+  if (value.empty()) return krnln_store_text(L"");
+  wchar_t* text = krnln_text_from_utf8(value);
+  return krnln_text_ucase(text);
+}
+
+extern "C" wchar_t* krnln_text_lcase(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring result = text;
+  std::transform(result.begin(), result.end(), result.begin(), ::towlower);
+  return krnln_store_text(result);
+}
+
+wchar_t* krnln_text_lcase(int value) {
+  std::wstring text = std::to_wstring(value);
+  return krnln_text_lcase(text.c_str());
+}
+
+wchar_t* krnln_text_lcase(double value) {
+  wchar_t buf[64];
+  swprintf(buf, sizeof(buf) / sizeof(wchar_t), L"%.15g", value);
+  return krnln_text_lcase(buf);
+}
+
+wchar_t* krnln_text_lcase(const YC_BIN& value) {
+  if (value.empty()) return krnln_store_text(L"");
+  wchar_t* text = krnln_text_from_utf8(value);
+  return krnln_text_lcase(text);
+}
+
+extern "C" wchar_t* krnln_text_qjcase(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring result = text;
+  for (auto& ch : result) {
+    if (ch >= L'A' && ch <= L'Z') ch = ch + 0xFEE0;
+    else if (ch >= L'a' && ch <= L'z') ch = ch + 0xFEE0;
+    else if (ch >= L'0' && ch <= L'9') ch = ch + 0xFEE0;
+    else if (ch == L' ') ch = 0x3000;
+  }
+  return krnln_store_text(result);
+}
+
+extern "C" wchar_t* krnln_text_bjcase(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring result = text;
+  for (auto& ch : result) {
+    if (ch >= 0xFF21 && ch <= 0xFF3A) ch = ch - 0xFEE0;
+    else if (ch >= 0xFF41 && ch <= 0xFF5A) ch = ch - 0xFEE0;
+    else if (ch >= 0xFF10 && ch <= 0xFF19) ch = ch - 0xFEE0;
+    else if (ch == 0x3000) ch = L' ';
+  }
+  return krnln_store_text(result);
+}
+
+extern "C" wchar_t* krnln_text_ltrim(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring result = text;
+  size_t start = 0;
+  while (start < result.length() && (result[start] == L' ' || result[start] == L'\t' || result[start] == 0x3000)) {
+    start++;
+  }
+  return krnln_store_text(result.substr(start));
+}
+
+extern "C" wchar_t* krnln_text_rtrim(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring result = text;
+  size_t end = result.length();
+  while (end > 0 && (result[end - 1] == L' ' || result[end - 1] == L'\t' || result[end - 1] == 0x3000)) {
+    end--;
+  }
+  return krnln_store_text(result.substr(0, end));
+}
+
+extern "C" wchar_t* krnln_text_trim(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring temp = text;
+  std::wstring result = temp;
+  
+  size_t start = 0;
+  while (start < result.length() && (result[start] == L' ' || result[start] == L'\t' || result[start] == 0x3000)) {
+    start++;
+  }
+  result = result.substr(start);
+  
+  size_t end = result.length();
+  while (end > 0 && (result[end - 1] == L' ' || result[end - 1] == L'\t' || result[end - 1] == 0x3000)) {
+    end--;
+  }
+  return krnln_store_text(result.substr(0, end));
+}
+
+extern "C" wchar_t* krnln_text_trimall(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  std::wstring result = text;
+  std::wstring out;
+  for (auto ch : result) {
+    if (ch != L' ' && ch != L'\t' && ch != 0x3000) {
+      out += ch;
+    }
+  }
+  return krnln_store_text(out);
+}
+
+extern "C" wchar_t* krnln_text_replace(const wchar_t* text, int startPos, int length, const wchar_t* replacement) {
+  if (!text || startPos < 1 || length < 0) return krnln_store_text(text ? text : L"");
+  
+  std::wstring result = text;
+  std::wstring repl = replacement ? replacement : L"";
+  
+  size_t start = static_cast<size_t>(startPos - 1);
+  if (start >= result.length()) return krnln_store_text(result);
+  
+  size_t len = static_cast<size_t>(length);
+  if (start + len > result.length()) len = result.length() - start;
+  
+  result.replace(start, len, repl);
+  return krnln_store_text(result);
+}
+
+extern "C" wchar_t* krnln_text_rpsubtext(const wchar_t* text, const wchar_t* subText, const wchar_t* replacement, int startPos, int count, int caseSensitive) {
+  if (!text || !subText) return krnln_store_text(text ? text : L"");
+  
+  std::wstring result = text;
+  std::wstring sub = subText;
+  std::wstring repl = replacement ? replacement : L"";
+  
+  if (sub.empty()) return krnln_store_text(result);
+  
+  if (startPos <= 0) startPos = 1;
+  size_t start = static_cast<size_t>(startPos - 1);
+  if (start >= result.length()) return krnln_store_text(result);
+  
+  if (count <= 0) count = -1;
+  
+  std::wstring hay = result;
+  std::wstring need = sub;
+  
+  if (!caseSensitive) {
+    std::transform(hay.begin(), hay.end(), hay.begin(), ::towlower);
+    std::transform(need.begin(), need.end(), need.begin(), ::towlower);
+  }
+  
+  int replaced = 0;
+  size_t pos = hay.find(need, start);
+  while (pos != std::string::npos && (count < 0 || replaced < count)) {
+    result.replace(pos, need.length(), repl);
+    hay.replace(pos, need.length(), repl);
+    if (!caseSensitive) {
+      std::wstring tempRepl = repl;
+      std::transform(tempRepl.begin(), tempRepl.end(), tempRepl.begin(), ::towlower);
+      hay.replace(pos, repl.length(), tempRepl);
+    }
+    pos = hay.find(need, pos + repl.length());
+    replaced++;
+  }
+  
+  return krnln_store_text(result);
+}
+
+extern "C" wchar_t* krnln_text_space(int count) {
+  if (count <= 0) return krnln_store_text(L"");
+  std::wstring result(count, L' ');
+  return krnln_store_text(result);
+}
+
+extern "C" wchar_t* krnln_text_string(int count, const wchar_t* text) {
+  if (count <= 0 || !text) return krnln_store_text(L"");
+  std::wstring result;
+  for (int i = 0; i < count; i++) {
+    result += text;
+  }
+  return krnln_store_text(result);
+}
+
+extern "C" int krnln_text_strcomp(const wchar_t* text1, const wchar_t* text2, int caseSensitive) {
+  const wchar_t* s1 = text1 ? text1 : L"";
+  const wchar_t* s2 = text2 ? text2 : L"";
+  
+  if (caseSensitive) {
+    int cmp = wcscmp(s1, s2);
+    return cmp < 0 ? -1 : (cmp > 0 ? 1 : 0);
+  } else {
+    std::wstring t1 = s1, t2 = s2;
+    std::transform(t1.begin(), t1.end(), t1.begin(), ::towlower);
+    std::transform(t2.begin(), t2.end(), t2.begin(), ::towlower);
+    int cmp = wcscmp(t1.c_str(), t2.c_str());
+    return cmp < 0 ? -1 : (cmp > 0 ? 1 : 0);
+  }
+}
+
+extern "C" wchar_t* krnln_text_pstr(intptr_t ptr) {
+  if (!ptr) return krnln_store_text(L"");
+  return krnln_store_text(reinterpret_cast<const wchar_t*>(ptr));
+}
+
+YC_BIN krnln_text_to_utf8(const wchar_t* text) {
+  if (!text) return YC_BIN();
+  
+  int len = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+  if (len <= 0) return YC_BIN();
+  
+  std::vector<char> buffer(len);
+  WideCharToMultiByte(CP_UTF8, 0, text, -1, buffer.data(), len, nullptr, nullptr);
+  
+  YC_BIN result(buffer.begin(), buffer.end());
+  return result;
+}
+
+wchar_t* krnln_text_from_utf8(const YC_BIN& utf8Data) {
+  if (utf8Data.empty()) return krnln_store_text(L"");
+  
+  int len = MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<const char*>(utf8Data.data()), static_cast<int>(utf8Data.size()), nullptr, 0);
+  if (len <= 0) return krnln_store_text(L"");
+  
+  std::vector<wchar_t> buffer(len);
+  MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<const char*>(utf8Data.data()), static_cast<int>(utf8Data.size()), buffer.data(), len);
+  
+  return krnln_store_text(std::wstring(buffer.data()));
+}
+
+YC_BIN krnln_text_to_utf16(const wchar_t* text) {
+  if (!text) return YC_BIN();
+  
+  int len = (wcslen(text) + 1) * sizeof(wchar_t);
+  const unsigned char* ptr = reinterpret_cast<const unsigned char*>(text);
+  return YC_BIN(ptr, ptr + len);
+}
+
+wchar_t* krnln_text_from_utf16(const YC_BIN& utf16Data) {
+  if (utf16Data.empty() || utf16Data.size() < sizeof(wchar_t)) {
+    return krnln_store_text(L"");
+  }
+
+  // 确保数据以 null 结尾，并复制到 std::wstring
+  // 假设 utf16Data 包含 null 终止符，因为 krnln_text_to_utf16 包含了它
+  const wchar_t* utf16Ptr = reinterpret_cast<const wchar_t*>(utf16Data.data());
+  return krnln_store_text(std::wstring(utf16Ptr));
+}
+
+extern "C" wchar_t* krnln_text_str(const wchar_t* text) {
+  if (!text) return krnln_store_text(L"");
+  return krnln_store_text(text);
+}
+
+wchar_t* krnln_text_str(int value) {
+  std::wstring result = std::to_wstring(value);
+  return krnln_store_text(result);
+}
+
+wchar_t* krnln_text_str(double value) {
+  wchar_t buf[64];
+  swprintf(buf, sizeof(buf) / sizeof(wchar_t), L"%.15g", value);
+  return krnln_store_text(buf);
+}
+
+wchar_t* krnln_text_str(bool value) {
+  return krnln_store_text(value ? L"即真" : L"即假");
+}
+
+wchar_t* krnln_text_str(const YC_BIN& value) {
+  if (value.empty()) return krnln_store_text(L"");
+  // 尝试作为 UTF-8 解析
+  return krnln_text_from_utf8(value);
+}

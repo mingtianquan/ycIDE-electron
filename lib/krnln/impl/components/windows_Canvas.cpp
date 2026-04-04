@@ -5,14 +5,27 @@
 #endif
 #include <windows.h>
 
+#ifndef EM_HIDESELECTION
+#define EM_HIDESELECTION 0x00B1
+#endif
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
 #include <cmath>
+#include <string>
 #include <objidl.h>
 #include <vector>
 #include <gdiplus.h>
+
+#include "shared_helpers.h"
+
+extern "C" int krnln_edit_set_prop_num_runtime(long long editHandle, int propIndex, intptr_t value);
+extern "C" int krnln_edit_set_prop_text_runtime(long long editHandle, int propIndex, const wchar_t* value);
+extern "C" int krnln_edit_set_prop_bin_runtime(long long editHandle, int propIndex, const void* value);
+extern "C" intptr_t krnln_edit_get_prop_num_runtime(long long editHandle, int propIndex);
+extern "C" const wchar_t* krnln_edit_get_prop_text_runtime(long long editHandle, int propIndex);
 
 namespace {
 
@@ -23,6 +36,20 @@ const wchar_t* kCanvasClassName = L"KRNLN_CANVAS";
 struct YCBinView {
   const unsigned char* data;
   int size;
+};
+
+constexpr wchar_t kButtonStateProp[] = L"KRNLN_BUTTON_RUNTIME_STATE_V1";
+
+struct ButtonRuntimeState {
+  WNDPROC oldWndProc = nullptr;
+  std::wstring tag;
+  HCURSOR customCursor = nullptr;
+  HBITMAP picBitmap = nullptr;
+  bool picOwned = false;
+  int styleMode = 0;  // 0=normal 1=default
+  int horizAlign = 1; // 0=left 1=center 2=right
+  int vertAlign = 1;  // 0=top 1=center 2=bottom
+  HFONT fontHandle = nullptr;
 };
 
 struct CanvasState {
@@ -51,12 +78,20 @@ struct CanvasState {
 
 static ULONG_PTR g_gdiplusToken = 0;
 
-static HWND as_hwnd(long long panelHandle) {
-  return reinterpret_cast<HWND>(static_cast<intptr_t>(panelHandle));
-}
-
 static CanvasState* get_canvas_state(HWND hwnd) {
   return reinterpret_cast<CanvasState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+}
+
+static ButtonRuntimeState* get_button_runtime_state(HWND hwnd) {
+  return reinterpret_cast<ButtonRuntimeState*>(GetPropW(hwnd, kButtonStateProp));
+}
+
+static const wchar_t* store_canvas_text_slot(const std::wstring& value) {
+  static std::wstring slots[8];
+  static int index = 0;
+  index = (index + 1) & 7;
+  slots[index] = value;
+  return slots[index].c_str();
 }
 
 static void ensure_gdiplus_started() {
@@ -715,6 +750,260 @@ static bool is_canvas_window(HWND hwnd) {
   return lstrcmpiW(className, kCanvasClassName) == 0;
 }
 
+static bool is_button_window(HWND hwnd) {
+  if (!hwnd || !IsWindow(hwnd)) return false;
+  wchar_t className[64] = {};
+  if (GetClassNameW(hwnd, className, static_cast<int>(sizeof(className) / sizeof(className[0]))) <= 0) {
+    return false;
+  }
+  return lstrcmpiW(className, L"Button") == 0 || lstrcmpiW(className, L"BUTTON") == 0;
+}
+
+static bool is_edit_window(HWND hwnd) {
+  if (!hwnd || !IsWindow(hwnd)) return false;
+  wchar_t className[64] = {};
+  if (GetClassNameW(hwnd, className, static_cast<int>(sizeof(className) / sizeof(className[0]))) <= 0) {
+    return false;
+  }
+  return lstrcmpiW(className, L"Edit") == 0 || lstrcmpiW(className, L"EDIT") == 0;
+}
+
+static int normalize_button_style_mode(int mode) {
+  return mode == 1 ? 1 : 0;
+}
+
+static int normalize_button_halign(int mode) {
+  if (mode < 0) return 0;
+  if (mode > 2) return 2;
+  return mode;
+}
+
+static int normalize_button_valign(int mode) {
+  if (mode < 0) return 0;
+  if (mode > 2) return 2;
+  return mode;
+}
+
+static void apply_button_runtime_style(HWND hwnd, ButtonRuntimeState* state) {
+  if (!hwnd || !state) return;
+  LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+  style &= ~(BS_PUSHBUTTON | BS_DEFPUSHBUTTON | BS_LEFT | BS_CENTER | BS_RIGHT | BS_TOP | BS_VCENTER | BS_BOTTOM | BS_BITMAP | BS_TEXT | BS_ICON);
+  style |= (state->styleMode == 1) ? BS_DEFPUSHBUTTON : BS_PUSHBUTTON;
+
+  if (state->horizAlign == 0) style |= BS_LEFT;
+  else if (state->horizAlign == 2) style |= BS_RIGHT;
+  else style |= BS_CENTER;
+
+  if (state->vertAlign == 0) style |= BS_TOP;
+  else if (state->vertAlign == 2) style |= BS_BOTTOM;
+  else style |= BS_VCENTER;
+
+  style |= state->picBitmap ? BS_BITMAP : BS_TEXT;
+  SetWindowLongPtrW(hwnd, GWL_STYLE, style);
+  SendMessageW(hwnd, BM_SETIMAGE, IMAGE_BITMAP, reinterpret_cast<LPARAM>(state->picBitmap));
+  SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+    SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+}
+
+static HBITMAP load_bitmap_from_bytes(const unsigned char* data, int len) {
+  if (!data || len <= 0) return nullptr;
+  ensure_gdiplus_started();
+  HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, static_cast<SIZE_T>(len));
+  if (!hMem) return nullptr;
+  void* memPtr = GlobalLock(hMem);
+  if (!memPtr) {
+    GlobalFree(hMem);
+    return nullptr;
+  }
+  std::memcpy(memPtr, data, static_cast<size_t>(len));
+  GlobalUnlock(hMem);
+
+  IStream* stream = nullptr;
+  if (CreateStreamOnHGlobal(hMem, TRUE, &stream) != S_OK || !stream) {
+    GlobalFree(hMem);
+    return nullptr;
+  }
+
+  HBITMAP out = nullptr;
+  {
+    Gdiplus::Bitmap bmp(stream, FALSE);
+    if (bmp.GetLastStatus() == Gdiplus::Ok) {
+      Gdiplus::Color bg(255, 255, 255, 255);
+      if (bmp.GetHBITMAP(bg, &out) != Gdiplus::Ok) {
+        out = nullptr;
+      }
+    }
+  }
+  stream->Release();
+  return out;
+}
+
+static LRESULT CALLBACK krnln_button_runtime_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+  ButtonRuntimeState* state = get_button_runtime_state(hwnd);
+  if (!state || !state->oldWndProc) {
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+  }
+
+  if (msg == WM_SETCURSOR && state->customCursor && LOWORD(lParam) == HTCLIENT) {
+    SetCursor(state->customCursor);
+    return TRUE;
+  }
+
+  if (msg == WM_NCDESTROY) {
+    WNDPROC oldProc = state->oldWndProc;
+    RemovePropW(hwnd, kButtonStateProp);
+    if (state->picOwned && state->picBitmap) {
+      DeleteObject(state->picBitmap);
+    }
+    delete state;
+    return CallWindowProcW(oldProc, hwnd, msg, wParam, lParam);
+  }
+
+  return CallWindowProcW(state->oldWndProc, hwnd, msg, wParam, lParam);
+}
+
+static ButtonRuntimeState* ensure_button_runtime_state(HWND hwnd) {
+  if (!hwnd || !IsWindow(hwnd)) return nullptr;
+  ButtonRuntimeState* state = get_button_runtime_state(hwnd);
+  if (state) return state;
+
+  state = new ButtonRuntimeState();
+  LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+  state->styleMode = (style & BS_DEFPUSHBUTTON) ? 1 : 0;
+  if (style & BS_LEFT) state->horizAlign = 0;
+  else if (style & BS_RIGHT) state->horizAlign = 2;
+  else state->horizAlign = 1;
+  if (style & BS_TOP) state->vertAlign = 0;
+  else if (style & BS_BOTTOM) state->vertAlign = 2;
+  else state->vertAlign = 1;
+  state->fontHandle = reinterpret_cast<HFONT>(SendMessageW(hwnd, WM_GETFONT, 0, 0));
+
+  state->oldWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+    hwnd,
+    GWLP_WNDPROC,
+    reinterpret_cast<LONG_PTR>(krnln_button_runtime_wnd_proc)
+  ));
+  SetPropW(hwnd, kButtonStateProp, reinterpret_cast<HANDLE>(state));
+  return state;
+}
+
+static intptr_t button_get_prop_num(HWND hwnd, int propIndex) {
+  ButtonRuntimeState* state = ensure_button_runtime_state(hwnd);
+  if (!state) return 0;
+  switch (propIndex) {
+    case 9: return state->styleMode;
+    case 11: return state->horizAlign;
+    case 12: return state->vertAlign;
+    case 13: return static_cast<intptr_t>(reinterpret_cast<intptr_t>(state->fontHandle));
+    default: return 0;
+  }
+}
+
+static const wchar_t* button_get_prop_text(HWND hwnd, int propIndex) {
+  ButtonRuntimeState* state = ensure_button_runtime_state(hwnd);
+  if (!state) return L"";
+  if (propIndex == 4) {
+    return store_canvas_text_slot(state->tag);
+  }
+  if (propIndex == 10) {
+    return krnln_control_get_text(from_hwnd(hwnd));
+  }
+  return L"";
+}
+
+static int button_set_prop_num(HWND hwnd, int propIndex, intptr_t value) {
+  ButtonRuntimeState* state = ensure_button_runtime_state(hwnd);
+  if (!state) return 0;
+  switch (propIndex) {
+    case 9:
+      state->styleMode = normalize_button_style_mode(static_cast<int>(value));
+      apply_button_runtime_style(hwnd, state);
+      return 1;
+    case 11:
+      state->horizAlign = normalize_button_halign(static_cast<int>(value));
+      apply_button_runtime_style(hwnd, state);
+      return 1;
+    case 12:
+      state->vertAlign = normalize_button_valign(static_cast<int>(value));
+      apply_button_runtime_style(hwnd, state);
+      return 1;
+    case 13:
+      state->fontHandle = reinterpret_cast<HFONT>(value);
+      SendMessageW(hwnd, WM_SETFONT, reinterpret_cast<WPARAM>(state->fontHandle), TRUE);
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+static int button_set_prop_text(HWND hwnd, int propIndex, const wchar_t* value) {
+  ButtonRuntimeState* state = ensure_button_runtime_state(hwnd);
+  if (!state) return 0;
+  const wchar_t* safe = value ? value : L"";
+  switch (propIndex) {
+    case 4:
+      state->tag = safe;
+      return 1;
+    case 10:
+      return SetWindowTextW(hwnd, safe) ? 1 : 0;
+    default:
+      return 0;
+  }
+}
+
+static int button_set_prop_bin(HWND hwnd, int propIndex, const void* value) {
+  ButtonRuntimeState* state = ensure_button_runtime_state(hwnd);
+  if (!state) return 0;
+
+  if (propIndex == 7) {
+    const YCBinView* bin = reinterpret_cast<const YCBinView*>(value);
+    if (!bin || !bin->data || bin->size <= 0) {
+      state->customCursor = nullptr;
+      return 1;
+    }
+    if (bin->size >= static_cast<int>(sizeof(intptr_t))) {
+      intptr_t raw = 0;
+      std::memcpy(&raw, bin->data, sizeof(intptr_t));
+      state->customCursor = reinterpret_cast<HCURSOR>(raw);
+    } else {
+      state->customCursor = nullptr;
+    }
+    return 1;
+  }
+
+  if (propIndex == 8) {
+    const YCBinView* bin = reinterpret_cast<const YCBinView*>(value);
+    HBITMAP nextBitmap = nullptr;
+    bool nextOwned = false;
+    if (bin && bin->data && bin->size > 0) {
+      if (bin->size >= static_cast<int>(sizeof(intptr_t))) {
+        intptr_t raw = 0;
+        std::memcpy(&raw, bin->data, sizeof(intptr_t));
+        nextBitmap = reinterpret_cast<HBITMAP>(raw);
+      } else {
+        nextBitmap = load_bitmap_from_bytes(bin->data, bin->size);
+        nextOwned = (nextBitmap != nullptr);
+      }
+    }
+
+    HBITMAP oldBitmap = state->picBitmap;
+    const bool oldOwned = state->picOwned;
+    state->picBitmap = nextBitmap;
+    state->picOwned = nextOwned;
+    apply_button_runtime_style(hwnd, state);
+    if (oldOwned && oldBitmap && oldBitmap != nextBitmap) {
+      DeleteObject(oldBitmap);
+    }
+
+    if (bin && bin->data && bin->size > 0 && !nextBitmap) {
+      return 0;
+    }
+    return 1;
+  }
+
+  return 0;
+}
+
 } // namespace
 
 extern "C" const wchar_t* krnln_control_get_text(long long controlHandle) {
@@ -736,6 +1025,64 @@ extern "C" int krnln_control_set_text(long long controlHandle, const wchar_t* te
   HWND hwnd = as_hwnd(controlHandle);
   if (!hwnd || !IsWindow(hwnd)) return 0;
   return SetWindowTextW(hwnd, text ? text : L"") ? 1 : 0;
+}
+
+extern "C" intptr_t krnln_control_get_prop_num(long long controlHandle, int propIndex) {
+  HWND hwnd = as_hwnd(controlHandle);
+  if (!hwnd || !IsWindow(hwnd) || propIndex < 0) return 0;
+
+  switch (propIndex) {
+    case 0:
+    case 1:
+    case 2:
+    case 3: {
+      RECT rect{};
+      GetWindowRect(hwnd, &rect);
+      HWND parent = GetParent(hwnd);
+      if (parent) {
+        MapWindowPoints(nullptr, parent, reinterpret_cast<LPPOINT>(&rect), 2);
+      }
+      if (propIndex == 0) return rect.left;
+      if (propIndex == 1) return rect.top;
+      if (propIndex == 2) return rect.right - rect.left;
+      return rect.bottom - rect.top;
+    }
+    case 5:
+      return IsWindowVisible(hwnd) ? 1 : 0;
+    case 6:
+      return IsWindowEnabled(hwnd) ? 0 : 1;
+    default:
+      break;
+  }
+
+  if (is_button_window(hwnd)) {
+    return button_get_prop_num(hwnd, propIndex);
+  }
+
+  if (is_edit_window(hwnd)) {
+    return krnln_edit_get_prop_num_runtime(controlHandle, propIndex);
+  }
+
+  return 0;
+}
+
+extern "C" const wchar_t* krnln_control_get_prop_text(long long controlHandle, int propIndex) {
+  HWND hwnd = as_hwnd(controlHandle);
+  if (!hwnd || !IsWindow(hwnd) || propIndex < 0) return L"";
+
+  if (is_button_window(hwnd)) {
+    return button_get_prop_text(hwnd, propIndex);
+  }
+
+  if (is_edit_window(hwnd)) {
+    return krnln_edit_get_prop_text_runtime(controlHandle, propIndex);
+  }
+
+  if (propIndex == 8 || propIndex == 4) {
+    return krnln_control_get_text(controlHandle);
+  }
+
+  return L"";
 }
 
 extern "C" int krnln_control_set_prop_num(long long controlHandle, int propIndex, intptr_t value) {
@@ -763,15 +1110,54 @@ extern "C" int krnln_control_set_prop_num(long long controlHandle, int propIndex
       break;
   }
 
-  return static_cast<int>(SendMessageW(hwnd, kSetPropMessage, static_cast<WPARAM>(propIndex), static_cast<LPARAM>(value)) != 0);
+  if (is_button_window(hwnd)) {
+    if (button_set_prop_num(hwnd, propIndex, value)) return 1;
+  }
+
+  if (is_edit_window(hwnd)) {
+    if (krnln_edit_set_prop_num_runtime(controlHandle, propIndex, value)) return 1;
+  }
+
+  if (is_canvas_window(hwnd)) {
+    return static_cast<int>(SendMessageW(hwnd, kSetPropMessage, static_cast<WPARAM>(propIndex), static_cast<LPARAM>(value)) != 0);
+  }
+
+  return 0;
+}
+
+extern "C" int krnln_control_set_prop_text(long long controlHandle, int propIndex, const wchar_t* value) {
+  HWND hwnd = as_hwnd(controlHandle);
+  if (!hwnd || !IsWindow(hwnd) || propIndex < 0) return 0;
+
+  if (is_button_window(hwnd)) {
+    return button_set_prop_text(hwnd, propIndex, value);
+  }
+
+  if (is_edit_window(hwnd)) {
+    return krnln_edit_set_prop_text_runtime(controlHandle, propIndex, value);
+  }
+
+  return krnln_control_set_text(controlHandle, value ? value : L"");
 }
 
 extern "C" int krnln_control_set_prop_bin(long long controlHandle, int propIndex, const void* value) {
   HWND hwnd = as_hwnd(controlHandle);
   if (!hwnd || !IsWindow(hwnd) || propIndex < 0) return 0;
-  return static_cast<int>(SendMessageW(hwnd, kSetPropMessage, static_cast<WPARAM>(propIndex), reinterpret_cast<LPARAM>(value)) != 0);
-}
 
+  if (is_button_window(hwnd)) {
+    return button_set_prop_bin(hwnd, propIndex, value);
+  }
+
+  if (is_edit_window(hwnd)) {
+    return krnln_edit_set_prop_bin_runtime(controlHandle, propIndex, value);
+  }
+
+  if (is_canvas_window(hwnd)) {
+    return static_cast<int>(SendMessageW(hwnd, kSetPropMessage, static_cast<WPARAM>(propIndex), reinterpret_cast<LPARAM>(value)) != 0);
+  }
+
+  return 0;
+}
 extern "C" int krnln_init_window_units(void) {
   WNDCLASSEXW wc{};
   wc.cbSize = sizeof(wc);

@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSy
 import { execFile, execFileSync, ChildProcess } from 'child_process'
 import { app, BrowserWindow } from 'electron'
 import { tmpdir } from 'os'
+import iconv from 'iconv-lite'
 import { libraryManager } from './libraryManager'
 import type { LibraryCommand as LibCommand, LibraryConstant as LibConstant, LibraryWindowUnit as LibWindowUnit } from './libraryManager'
 import { getYcmdCommands } from './ycmd-registry'
@@ -147,6 +148,7 @@ interface LibraryCompileProtocol {
   eventBindings?: LibraryEventBindingSpec[]
   commandBindings?: LibraryCommandBindingSpec[]
   controlBindings?: LibraryControlBindingSpec[]
+  externDeclarations?: LibraryExternDeclarationGroupsSpec | Array<string | LibraryExternDeclarationSpec>
 }
 
 interface NormalizedEventBinding {
@@ -180,6 +182,21 @@ interface LibraryControlBindingSpec {
   style?: string
 }
 
+type ExternDeclarationScope = 'common' | 'main' | 'eyc'
+
+interface LibraryExternDeclarationSpec {
+  library?: string
+  scope?: ExternDeclarationScope | 'all'
+  declaration?: string
+  code?: string
+}
+
+interface LibraryExternDeclarationGroupsSpec {
+  common?: string[]
+  main?: string[]
+  eyc?: string[]
+}
+
 interface NormalizedControlBinding {
   library: string
   unit: string
@@ -192,6 +209,13 @@ interface LoadedCompileProtocols {
   events: NormalizedEventBinding[]
   commands: NormalizedCommandBinding[]
   controls: NormalizedControlBinding[]
+  externs: NormalizedExternDeclaration[]
+}
+
+interface NormalizedExternDeclaration {
+  library: string
+  scope: ExternDeclarationScope
+  code: string
 }
 
 let compileProtocolCache: LoadedCompileProtocols | null = null
@@ -202,6 +226,40 @@ let activeControlTypeMap: Map<string, string> = new Map()
 let runningProcess: ChildProcess | null = null
 let runningDebugCmdFile: string | null = null
 let runningDebugResumeToken = 0
+
+// 将 Buffer 转换为字符串，正确处理 Windows GBK/GB2312 编码
+function bufferToString(buffer: Buffer | string | undefined | null): string {
+  if (!buffer) return ''
+  if (typeof buffer === 'string') return buffer
+  
+  // 首先尝试 UTF-8 (因为很多工具现在输出 UTF-8)
+  try {
+    const result = buffer.toString('utf-8')
+    // 验证 UTF-8 是否有效（检查是否有替换字符）
+    if (!result.includes('\ufffd')) {
+      return result
+    }
+  } catch {
+    // UTF-8 解读失败，继续尝试其他编码
+  }
+  
+  // 在 Windows 上尝试 GBK/CP936 (中文系统的默认编码)
+  if (process.platform === 'win32') {
+    try {
+      return iconv.decode(buffer, 'gbk')
+    } catch {
+      // GBK 解读失败，继续
+    }
+  }
+  
+  // 最后尝试 UCS2/UTF-16 (某些情况下可能有用)
+  try {
+    return iconv.decode(buffer, 'ucs2')
+  } catch {
+    // 都失败了，返回 UTF-8（即使有乱码）
+    return buffer.toString('utf-8')
+  }
+}
 
 // 发送编译消息到渲染进程
 function sendMessage(msg: CompileMessage): void {
@@ -759,9 +817,10 @@ async function compileProjectResources(
         '/fo', stageObjectPath,
         stageRcPath,
       ]
-      const proc = execFile(zigPath, rcArgs, { cwd: stageDir, maxBuffer: 10 * 1024 * 1024 }, (error, _stdout, stderr) => {
+      const proc = execFile(zigPath, rcArgs, { cwd: stageDir, maxBuffer: 10 * 1024 * 1024, encoding: null }, (error, _stdout, stderr) => {
         if (stderr) {
-          const lines = stderr.split('\n').filter(l => l.trim())
+          const stderrStr = bufferToString(stderr)
+          const lines = stderrStr.split('\n').filter(l => l.trim())
           for (const line of lines) {
             const lower = line.toLowerCase()
             if (lower.includes('error')) {
@@ -1051,12 +1110,77 @@ function parseControlBindingsFromProtocol(content: string, libName: string): Nor
   return result
 }
 
+function normalizeExternScope(scope: string | undefined): ExternDeclarationScope {
+  const text = (scope || '').trim().toLowerCase()
+  if (text === 'main') return 'main'
+  if (text === 'eyc') return 'eyc'
+  return 'common'
+}
+
+function normalizeExternDeclaration(code: string): string {
+  const line = (code || '').trim()
+  if (!line) return ''
+  return line.endsWith(';') ? line : `${line};`
+}
+
+function parseExternDeclarationsFromProtocol(content: string, libName: string): NormalizedExternDeclaration[] {
+  let json: LibraryCompileProtocol
+  try {
+    json = JSON.parse(content) as LibraryCompileProtocol
+  } catch {
+    return []
+  }
+
+  const spec = json?.externDeclarations
+  if (!spec) return []
+
+  const result: NormalizedExternDeclaration[] = []
+  const pushDecl = (rawCode: string, rawScope?: string): void => {
+    const code = normalizeExternDeclaration(rawCode)
+    if (!code) return
+    result.push({
+      library: normalizeKey(libName),
+      scope: normalizeExternScope(rawScope),
+      code,
+    })
+  }
+
+  if (Array.isArray(spec)) {
+    for (const item of spec) {
+      if (typeof item === 'string') {
+        pushDecl(item, 'common')
+        continue
+      }
+      if (!item || typeof item !== 'object') continue
+      const scope = (item.scope || '').toString().toLowerCase()
+      const code = typeof item.declaration === 'string'
+        ? item.declaration
+        : (typeof item.code === 'string' ? item.code : '')
+      if (scope === 'all') {
+        pushDecl(code, 'common')
+        continue
+      }
+      pushDecl(code, scope)
+    }
+    return result
+  }
+
+  if (!spec || typeof spec !== 'object') return result
+
+  const groups = spec as LibraryExternDeclarationGroupsSpec
+  for (const line of Array.isArray(groups.common) ? groups.common : []) pushDecl(line, 'common')
+  for (const line of Array.isArray(groups.main) ? groups.main : []) pushDecl(line, 'main')
+  for (const line of Array.isArray(groups.eyc) ? groups.eyc : []) pushDecl(line, 'eyc')
+  return result
+}
+
 function loadCompileProtocols(): LoadedCompileProtocols {
   if (compileProtocolCache) return compileProtocolCache
 
   const events: NormalizedEventBinding[] = []
   const commands: NormalizedCommandBinding[] = []
   const controls: NormalizedControlBinding[] = []
+  const externs: NormalizedExternDeclaration[] = []
   const libs = libraryManager.getList().filter(l => l.loaded)
 
   for (const lib of libs) {
@@ -1080,13 +1204,15 @@ function loadCompileProtocols(): LoadedCompileProtocols {
         const parsedEvents = parseEventBindingsFromProtocol(content, lib.name)
         const parsedCommands = parseCommandBindingsFromProtocol(content, lib.name)
         const parsedControls = parseControlBindingsFromProtocol(content, lib.name)
-        if (parsedEvents.length > 0 || parsedCommands.length > 0 || parsedControls.length > 0) {
+        const parsedExterns = parseExternDeclarationsFromProtocol(content, lib.name)
+        if (parsedEvents.length > 0 || parsedCommands.length > 0 || parsedControls.length > 0 || parsedExterns.length > 0) {
           events.push(...parsedEvents)
           commands.push(...parsedCommands)
           controls.push(...parsedControls)
+          externs.push(...parsedExterns)
           sendMessage({
             type: 'info',
-            text: `已加载支持库编译协议: ${basename(p)} (事件 ${parsedEvents.length} / 命令 ${parsedCommands.length} / 控件 ${parsedControls.length})`
+            text: `已加载支持库编译协议: ${basename(p)} (事件 ${parsedEvents.length} / 命令 ${parsedCommands.length} / 控件 ${parsedControls.length} / 声明 ${parsedExterns.length})`
           })
         }
       } catch {
@@ -1096,8 +1222,23 @@ function loadCompileProtocols(): LoadedCompileProtocols {
     }
   }
 
-  compileProtocolCache = { events, commands, controls }
+  compileProtocolCache = { events, commands, controls, externs }
   return compileProtocolCache
+}
+
+function emitProtocolExternDeclarations(scope: ExternDeclarationScope): string {
+  const protocols = loadCompileProtocols()
+  if (!protocols.externs.length) return ''
+  const lines: string[] = []
+  const seen = new Set<string>()
+  for (const item of protocols.externs) {
+    if (item.scope !== 'common' && item.scope !== scope) continue
+    const line = normalizeExternDeclaration(item.code)
+    if (!line || seen.has(line)) continue
+    seen.add(line)
+    lines.push(line)
+  }
+  return lines.length > 0 ? `${lines.join('\n')}\n\n` : ''
 }
 
 function resolveEventByProtocol(
@@ -1132,6 +1273,15 @@ function applyEmitTemplate(
 ): string {
   const cArgs = args.map(a => formatArgForC(a, commandMap, directCallables))
   return template
+    .replace(/\{argc\}/g, String(cArgs.length))
+    .replace(/\{fold:([A-Za-z_][A-Za-z0-9_:]*)\|([^{}]*)\}/g, (_m, fnName, emptyExpr) => {
+      if (cArgs.length <= 0) return emptyExpr || '0'
+      let expr = cArgs[0]
+      for (let i = 1; i < cArgs.length; i++) {
+        expr = `${fnName}(${expr}, ${cArgs[i]})`
+      }
+      return expr
+    })
     .replace(/\{args(?::(\d+))?\}/g, (_m, startText) => {
       const start = startText ? parseInt(startText, 10) : 0
       if (!Number.isInteger(start) || start < 0) return cArgs.join(', ')
@@ -1252,7 +1402,10 @@ function buildControlPropertySetCode(ctrlName: string, propName: string, valueEx
   }
 
   if (isTextLikeType(meta.typeName)) {
-    return `yc_set_control_text(L"${escapeCString(ctrlName)}", ${valueExpr});`
+    if (meta.index === 8) {
+      return `yc_set_control_text(L"${escapeCString(ctrlName)}", ${valueExpr});`
+    }
+    return `yc_set_control_prop_text(L"${escapeCString(ctrlName)}", ${meta.index}, ${valueExpr});`
   }
 
   if (isBinLikeType(meta.typeName)) {
@@ -2937,95 +3090,16 @@ function transpileEycContent(eycContent: string, fileName: string, projectGlobal
   result += '} YC_MDATA_INF;\n\n'
   result += 'extern "C" void yc_invoke_support_cmd(const char* libName, int cmdIndex, YC_MDATA_INF* pRetData, int argCount, YC_MDATA_INF* pArgs);\n'
   result += 'extern void yc_set_control_text(const wchar_t* ctrlName, const wchar_t* text);\n'
+  result += 'extern void yc_set_control_prop_text(const wchar_t* ctrlName, int propIndex, const wchar_t* value);\n'
   result += 'extern void yc_set_control_prop_num(const wchar_t* ctrlName, int propIndex, intptr_t value);\n'
   result += 'extern void yc_set_control_prop_bin(const wchar_t* ctrlName, int propIndex, const void* value);\n'
   result += 'extern const wchar_t* yc_get_control_text(const wchar_t* ctrlName);\n'
-  result += 'extern "C" const wchar_t* krnln_control_get_text(long long controlHandle);\n'
-  result += 'extern "C" int krnln_control_set_text(long long controlHandle, const wchar_t* text);\n'
-  result += 'extern "C" int krnln_control_set_prop_num(long long controlHandle, int propIndex, intptr_t value);\n'
-  result += 'extern "C" int krnln_control_set_prop_bin(long long controlHandle, int propIndex, const void* value);\n'
+  result += 'extern intptr_t yc_get_control_prop_num(const wchar_t* ctrlName, int propIndex);\n'
+  result += 'extern const wchar_t* yc_get_control_prop_text(const wchar_t* ctrlName, int propIndex);\n'
   result += 'extern long long yc_get_control_hwnd_by_name(const wchar_t* ctrlName);\n'
   result += 'extern int yc_text_compare(const wchar_t* left, const wchar_t* right);\n'
   result += 'extern int yc_text_starts_with(const wchar_t* text, const wchar_t* prefix);\n\n'
-  result += 'extern "C" long long krnln_drawpanel_get_hdc(long long panelHandle);\n'
-  result += 'extern "C" int krnln_drawpanel_clear(long long panelHandle, int left, int top, int width, int height);\n'
-  result += 'extern "C" int krnln_drawpanel_get_pixel(long long panelHandle, int x, int y);\n'
-  result += 'extern "C" int krnln_drawpanel_set_pixel(long long panelHandle, int x, int y, int color);\n'
-  result += 'extern "C" int krnln_drawpanel_line(long long panelHandle, int x1, int y1, int x2, int y2, int color);\n\n'
-  result += 'extern "C" int krnln_drawpanel_set_pic(long long panelHandle, const unsigned char* data, int len);\n\n'
-  result += 'extern "C" int krnln_drawpanel_draw_rect(long long panelHandle, int left, int top, int right, int bottom);\n'
-  result += 'extern "C" int krnln_drawpanel_fill_rect(long long panelHandle, int left, int top, int right, int bottom);\n'
-  result += 'extern "C" int krnln_drawpanel_draw_ellipse(long long panelHandle, int left, int top, int right, int bottom);\n'
-  result += 'extern "C" int krnln_drawpanel_draw_round_rect(long long panelHandle, int left, int top, int right, int bottom, int arcWidth, int arcHeight);\n'
-  result += 'extern "C" int krnln_drawpanel_invert_rect(long long panelHandle, int left, int top, int right, int bottom);\n\n'
-  result += 'extern "C" int krnln_drawpanel_arc(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);\n'
-  result += 'extern "C" int krnln_drawpanel_chord(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);\n'
-  result += 'extern "C" int krnln_drawpanel_pie(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);\n'
-  result += 'extern "C" int krnln_drawpanel_unit_cnv(long long panelHandle, int value, int valueType);\n'
-  result += 'extern "C" int krnln_drawpanel_set_write_pos(long long panelHandle, int x, int y);\n'
-  result += 'extern "C" int krnln_drawpanel_write(long long panelHandle, const wchar_t* text);\n'
-  result += 'extern "C" int krnln_drawpanel_print(long long panelHandle, const wchar_t* text);\n'
-  result += 'extern "C" int krnln_drawpanel_say(long long panelHandle, int x, int y, const wchar_t* text);\n'
-  result += 'extern "C" int krnln_drawpanel_get_text_width(long long panelHandle, const wchar_t* text);\n'
-  result += 'extern "C" int krnln_drawpanel_get_text_height(long long panelHandle, const wchar_t* text);\n\n'
-  result += 'extern "C" int krnln_drawpanel_draw_jb_rect(long long panelHandle, int left, int top, int width, int height, int direction, int color1, int color2);\n'
-  result += 'extern "C" int krnln_drawpanel_copy(long long srcPanelHandle, int left, int top, int width, int height, long long dstPanelHandle, int dstLeft, int dstTop, int mode);\n'
-  result += 'extern "C" int krnln_drawpanel_draw_pic(long long panelHandle, long long picHandle, int x, int y, int width, int height, int mode);\n'
-  result += 'extern "C" int krnln_drawpanel_get_pic_width(long long panelHandle, long long picHandle);\n'
-  result += 'extern "C" int krnln_drawpanel_get_pic_height(long long panelHandle, long long picHandle);\n\n'
-  result += 'long long krnln_fs_disk_total_kb(const wchar_t* driveText);\n'
-  result += 'long long krnln_fs_disk_free_kb(const wchar_t* driveText);\n'
-  result += 'wchar_t* krnln_fs_get_disk_label(const wchar_t* driveText);\n'
-  result += 'int krnln_fs_set_disk_label(const wchar_t* driveText, const wchar_t* label);\n'
-  result += 'int krnln_fs_change_drive(const wchar_t* driveText);\n'
-  result += 'int krnln_fs_change_dir(const wchar_t* path);\n'
-  result += 'wchar_t* krnln_fs_get_current_dir(void);\n'
-  result += 'int krnln_fs_create_dir(const wchar_t* path);\n'
-  result += 'int krnln_fs_remove_dir_all(const wchar_t* path);\n'
-  result += 'int krnln_fs_copy_file(const wchar_t* src, const wchar_t* dst);\n'
-  result += 'int krnln_fs_move_file(const wchar_t* src, const wchar_t* dst);\n'
-  result += 'int krnln_fs_delete_file(const wchar_t* path);\n'
-  result += 'int krnln_fs_rename_path(const wchar_t* src, const wchar_t* dst);\n'
-  result += 'int krnln_fs_file_exists(const wchar_t* path);\n'
-  result += 'wchar_t* krnln_fs_dir(const wchar_t* pattern, int attr);\n'
-  result += 'int krnln_fs_file_len(const wchar_t* path);\n'
-  result += 'int krnln_fs_get_attr(const wchar_t* path);\n'
-  result += 'int krnln_fs_set_attr(const wchar_t* path, int attr);\n'
-  result += 'wchar_t* krnln_fs_get_temp_file_name(const wchar_t* dir);\n'
-  result += 'YC_BIN krnln_fs_read_file_bin(const wchar_t* path);\n'
-  result += 'int krnln_fs_write_file_bins(const wchar_t* path, const std::vector<YC_BIN>& parts);\n'
-  result += 'YC_BIN krnln_to_bin(const YC_BIN& value);\n'
-  result += 'YC_BIN krnln_to_bin(const wchar_t* text);\n'
-  result += 'YC_BIN krnln_to_bin(wchar_t* text);\n'
-  result += 'YC_BIN krnln_to_bin(const char* text);\n'
-  result += 'YC_BIN krnln_to_bin(char* text);\n'
-  result += 'YC_BIN krnln_to_bin(bool value);\n'
-  result += 'YC_BIN krnln_to_bin(short value);\n'
-  result += 'YC_BIN krnln_to_bin(unsigned short value);\n'
-  result += 'YC_BIN krnln_to_bin(int value);\n'
-  result += 'YC_BIN krnln_to_bin(unsigned int value);\n'
-  result += 'YC_BIN krnln_to_bin(long value);\n'
-  result += 'YC_BIN krnln_to_bin(unsigned long value);\n'
-  result += 'YC_BIN krnln_to_bin(long long value);\n'
-  result += 'YC_BIN krnln_to_bin(unsigned long long value);\n'
-  result += 'YC_BIN krnln_to_bin(float value);\n'
-  result += 'YC_BIN krnln_to_bin(double value);\n'
-  result += 'int krnln_bin_len(const YC_BIN& value);\n'
-  result += 'YC_BIN krnln_bin_left(const YC_BIN& value, int count);\n'
-  result += 'YC_BIN krnln_bin_right(const YC_BIN& value, int count);\n'
-  result += 'YC_BIN krnln_bin_mid(const YC_BIN& value, int startPos, int count);\n'
-  result += 'int krnln_bin_find(const YC_BIN& haystack, const YC_BIN& needle, int startPos);\n'
-  result += 'int krnln_bin_rfind(const YC_BIN& haystack, const YC_BIN& needle, int startPos);\n'
-  result += 'YC_BIN krnln_bin_replace(const YC_BIN& value, int startPos, int replaceLen, const YC_BIN& repl);\n'
-  result += 'YC_BIN krnln_bin_replace_sub(const YC_BIN& value, const YC_BIN& from, const YC_BIN& to, int startPos, int replaceCount);\n'
-  result += 'YC_BIN krnln_bin_space(int count);\n'
-  result += 'YC_BIN krnln_bin_repeat(int count, const YC_BIN& value);\n'
-  result += 'YC_BIN krnln_bin_from_address(long long ptrValue, int len);\n'
-  result += 'int krnln_ptr_to_int(long long ptrValue);\n'
-  result += 'float krnln_ptr_to_float(long long ptrValue);\n'
-  result += 'double krnln_ptr_to_double(long long ptrValue);\n'
-  result += 'int krnln_bin_get_int(const YC_BIN& value, int offset, int reverseBytes);\n'
-  result += 'int krnln_bin_set_int(YC_BIN& value, int offset, int data, int reverseBytes);\n\n'
+  result += emitProtocolExternDeclarations('eyc')
   result += 'static wchar_t* yc_wcsdup_text(const wchar_t* s);\n'
   result += 'static wchar_t* yc_empty_text(void);\n'
   result += 'static wchar_t* yc_utf8_to_wide(const char* s);\n'
@@ -3844,10 +3918,7 @@ function generateMainC(
   mainCode += '    if (!fn) return;\n'
   mainCode += '    fn(pRetData, argCount, pArgs);\n'
   mainCode += '}\n\n'
-  mainCode += 'extern "C" const wchar_t* krnln_control_get_text(long long controlHandle);\n'
-  mainCode += 'extern "C" int krnln_control_set_text(long long controlHandle, const wchar_t* text);\n'
-  mainCode += 'extern "C" int krnln_control_set_prop_num(long long controlHandle, int propIndex, intptr_t value);\n'
-  mainCode += 'extern "C" int krnln_control_set_prop_bin(long long controlHandle, int propIndex, const void* value);\n\n'
+  mainCode += emitProtocolExternDeclarations('main')
 
   if (isWindowsApp) {
     // 查找启动窗口文件
@@ -3934,6 +4005,16 @@ function generateMainC(
     mainCode += '    if (!hCtrl) return L"";\n'
     mainCode += '    return krnln_control_get_text((long long)(intptr_t)hCtrl);\n'
     mainCode += '}\n\n'
+    mainCode += 'intptr_t yc_get_control_prop_num(const wchar_t* ctrlName, int propIndex) {\n'
+    mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
+    mainCode += '    if (!hCtrl || propIndex < 0) return 0;\n'
+    mainCode += '    return krnln_control_get_prop_num((long long)(intptr_t)hCtrl, propIndex);\n'
+    mainCode += '}\n\n'
+    mainCode += 'const wchar_t* yc_get_control_prop_text(const wchar_t* ctrlName, int propIndex) {\n'
+    mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
+    mainCode += '    if (!hCtrl || propIndex < 0) return L"";\n'
+    mainCode += '    return krnln_control_get_prop_text((long long)(intptr_t)hCtrl, propIndex);\n'
+    mainCode += '}\n\n'
 
     mainCode += 'int yc_text_compare(const wchar_t* left, const wchar_t* right) {\n'
     mainCode += '    const wchar_t* lhs = left ? left : L"";\n'
@@ -3952,6 +4033,11 @@ function generateMainC(
     mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
     mainCode += '    if (!hCtrl) return;\n'
     mainCode += '    krnln_control_set_text((long long)(intptr_t)hCtrl, text ? text : L"");\n'
+    mainCode += '}\n\n'
+    mainCode += 'void yc_set_control_prop_text(const wchar_t* ctrlName, int propIndex, const wchar_t* value) {\n'
+    mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
+    mainCode += '    if (!hCtrl || propIndex < 0) return;\n'
+    mainCode += '    krnln_control_set_prop_text((long long)(intptr_t)hCtrl, propIndex, value ? value : L"");\n'
     mainCode += '}\n\n'
     mainCode += 'void yc_set_control_prop_num(const wchar_t* ctrlName, int propIndex, intptr_t value) {\n'
     mainCode += '    HWND hCtrl = yc_get_control_handle_by_name(ctrlName);\n'
@@ -4021,21 +4107,48 @@ function generateMainC(
           const prop = unitInfo.properties[pi]
           const value = ctrl.extraProps[prop.name]
           if (value === undefined) continue
-          if (prop.typeName === '文本型') continue  // 文本由 CreateWindowExW 第3参数处理
-          let lparamCode: string
-          if (prop.typeName === '逻辑型') {
-            lparamCode = (value === true || value === '真') ? 'TRUE' : 'FALSE'
-          } else {
-            if (typeof value === 'number' && Number.isFinite(value)) {
-              lparamCode = String(value)
-            } else if (typeof value === 'string') {
-              const parsed = Number(value.trim())
-              lparamCode = Number.isFinite(parsed) ? String(parsed) : '0'
+          const propEn = normalizeKey(prop.englishName || '')
+          const isTextType = isTextLikeType(prop.typeName || '')
+          const isBinType = isBinLikeType(prop.typeName || '')
+          const isPrimaryText = (pi === 8) || propEn === 'context' || propEn === 'caption' || propEn === 'title' || propEn === 'text'
+          if (isTextType) {
+            if (isPrimaryText) continue
+            const textValue = String(value ?? '')
+            mainCode += `    krnln_control_set_prop_text((long long)(intptr_t)hCtrl, ${pi}, L"${escapeCString(textValue)}");\n`
+            continue
+          }
+          if (isBinType) {
+            continue
+          }
+          if (typeof value === 'boolean') {
+            const boolCode = value ? '1' : '0'
+            mainCode += `    krnln_control_set_prop_num((long long)(intptr_t)hCtrl, ${pi}, (intptr_t)(${boolCode}));\n`
+            continue
+          }
+          let lparamCode = '0'
+          if (typeof value === 'number' && Number.isFinite(value)) {
+            lparamCode = String(value)
+          } else if (typeof value === 'string') {
+            const raw = value.trim()
+            const parsed = Number(raw)
+            if (Number.isFinite(parsed)) {
+              lparamCode = String(parsed)
             } else {
-              lparamCode = '0'
+              const options = Array.isArray(prop.pickOptions) ? prop.pickOptions : []
+              if (options.length > 0) {
+                const normRaw = normalizeKey(raw)
+                const optionIndex = options.findIndex(opt => normalizeKey(String(opt)) === normRaw)
+                if (optionIndex >= 0) {
+                  lparamCode = String(optionIndex)
+                }
+              } else if (raw === '真') {
+                lparamCode = '1'
+              } else if (raw === '假') {
+                lparamCode = '0'
+              }
             }
           }
-          mainCode += `    SendMessage(hCtrl, WM_APP + 1, ${pi}, (LPARAM)${lparamCode});\n`
+          mainCode += `    krnln_control_set_prop_num((long long)(intptr_t)hCtrl, ${pi}, (intptr_t)(${lparamCode}));\n`
         }
       }
       mainCode += '\n'
@@ -4506,10 +4619,25 @@ function generateMainC(
     mainCode += '    (void)propIndex;\n'
     mainCode += '    (void)value;\n'
     mainCode += '}\n\n'
+    mainCode += 'void yc_set_control_prop_text(const wchar_t* ctrlName, int propIndex, const wchar_t* value) {\n'
+    mainCode += '    (void)ctrlName;\n'
+    mainCode += '    (void)propIndex;\n'
+    mainCode += '    (void)value;\n'
+    mainCode += '}\n\n'
     mainCode += 'void yc_set_control_prop_bin(const wchar_t* ctrlName, int propIndex, const void* value) {\n'
     mainCode += '    (void)ctrlName;\n'
     mainCode += '    (void)propIndex;\n'
     mainCode += '    (void)value;\n'
+    mainCode += '}\n\n'
+    mainCode += 'intptr_t yc_get_control_prop_num(const wchar_t* ctrlName, int propIndex) {\n'
+    mainCode += '    (void)ctrlName;\n'
+    mainCode += '    (void)propIndex;\n'
+    mainCode += '    return 0;\n'
+    mainCode += '}\n\n'
+    mainCode += 'const wchar_t* yc_get_control_prop_text(const wchar_t* ctrlName, int propIndex) {\n'
+    mainCode += '    (void)ctrlName;\n'
+    mainCode += '    (void)propIndex;\n'
+    mainCode += '    return L"";\n'
     mainCode += '}\n\n'
 
     // 先转译 .eyc 文件
@@ -4767,13 +4895,14 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
           msvcSystemLib('user32'),
           msvcSystemLib('gdi32'),
           msvcSystemLib('gdiplus'),
+          msvcSystemLib('comctl32'),
           msvcSystemLib('ole32'),
           msvcSystemLib('uuid'),
         ]
         args.push(...systemMsvcLibs)
         msvcLinkInputs.push(...systemMsvcLibs)
       } else {
-        args.push('-lkernel32', '-luser32', '-lgdi32', '-lgdiplus', '-lole32')
+        args.push('-lkernel32', '-luser32', '-lgdi32', '-lgdiplus', '-lcomctl32', '-lole32')
       }
     }
 
@@ -4828,7 +4957,7 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
     const unresolvedCmdLibReported = new Set<string>()
     const reportCompilerText = (text: string | Buffer | undefined | null): void => {
       if (!text) return
-      const payload = typeof text === 'string' ? text : text.toString('utf8')
+      const payload = bufferToString(text)
       const lines = payload.split('\n').filter(l => l.trim())
       for (const line of lines) {
         const lower = line.toLowerCase()
@@ -4869,7 +4998,14 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
 
     const runProcess = async (exePath: string, procArgs: string[], cwd: string, startupErrorText: string): Promise<boolean> => {
       return await new Promise<boolean>((resolve) => {
-        const proc = execFile(exePath, procArgs, { cwd, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+        // 在 Windows 上为编译器设置 UTF-8 相关环境
+        const envForProcess = { ...process.env }
+        if (process.platform === 'win32') {
+          // 告诉某些工具使用 UTF-8
+          envForProcess['PYTHONIOENCODING'] = 'utf-8'
+        }
+        
+        const proc = execFile(exePath, procArgs, { cwd, maxBuffer: 10 * 1024 * 1024, encoding: null, env: envForProcess }, (error, stdout, stderr) => {
           reportCompilerText(stdout)
           reportCompilerText(stderr)
           resolve(!error)
@@ -5051,6 +5187,7 @@ export function runExecutable(exePath: string): boolean {
       cwd: workDir,
       maxBuffer: 10 * 1024 * 1024,
       windowsHide: false,
+      encoding: null,
     })
 
     runningProcess = proc
@@ -5058,11 +5195,11 @@ export function runExecutable(exePath: string): boolean {
     let stderrBuffer = ''
 
     proc.stdout?.on('data', (data: Buffer) => {
-      stdoutBuffer = emitBufferedOutputChunk(data.toString('utf-8'), stdoutBuffer, 'info')
+      stdoutBuffer = emitBufferedOutputChunk(bufferToString(data), stdoutBuffer, 'info')
     })
 
     proc.stderr?.on('data', (data: Buffer) => {
-      stderrBuffer = emitBufferedOutputChunk(data.toString('utf-8'), stderrBuffer, 'warning')
+      stderrBuffer = emitBufferedOutputChunk(bufferToString(data), stderrBuffer, 'warning')
     })
 
     proc.on('exit', (code) => {
@@ -5127,5 +5264,3 @@ export function continueDebugExecutable(): boolean {
     return false
   }
 }
-
-

@@ -5,18 +5,6 @@
   "libraryVersion": "1.0.0",
   "commands": [
     {
-      "commandId": "krnln.messageBox",
-      "displayName": "信息框",
-      "entry": "krnln_message_box",
-      "returnType": "整数型"
-    },
-    {
-      "commandId": "krnln.textLength",
-      "displayName": "取文本长度",
-      "entry": "krnln_text_length",
-      "returnType": "整数型"
-    },
-    {
       "commandId": "krnln.drawPanel.getHdc",
       "displayName": "取设备句柄",
       "entry": "krnln_drawpanel_get_hdc",

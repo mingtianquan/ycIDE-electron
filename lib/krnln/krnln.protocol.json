@@ -1,5 +1,174 @@
 {
   "version": "1.0",
+  "externDeclarations": {
+    "common": [
+      "extern \"C\" const wchar_t* krnln_control_get_text(long long controlHandle);",
+      "extern \"C\" intptr_t krnln_control_get_prop_num(long long controlHandle, int propIndex);",
+      "extern \"C\" const wchar_t* krnln_control_get_prop_text(long long controlHandle, int propIndex);",
+      "extern \"C\" int krnln_control_set_text(long long controlHandle, const wchar_t* text);",
+      "extern \"C\" int krnln_control_set_prop_text(long long controlHandle, int propIndex, const wchar_t* value);",
+      "extern \"C\" int krnln_control_set_prop_num(long long controlHandle, int propIndex, intptr_t value);",
+      "extern \"C\" int krnln_control_set_prop_bin(long long controlHandle, int propIndex, const void* value);",
+      "extern \"C\" void krnln_edit_addtext_impl(long long editHandle, const wchar_t* text);",
+      "extern \"C\" long long krnln_drawpanel_get_hdc(long long panelHandle);",
+      "extern \"C\" int krnln_drawpanel_clear(long long panelHandle, int left, int top, int width, int height);",
+      "extern \"C\" int krnln_drawpanel_get_pixel(long long panelHandle, int x, int y);",
+      "extern \"C\" int krnln_drawpanel_set_pixel(long long panelHandle, int x, int y, int color);",
+      "extern \"C\" int krnln_drawpanel_line(long long panelHandle, int x1, int y1, int x2, int y2, int color);",
+      "extern \"C\" int krnln_drawpanel_set_pic(long long panelHandle, const unsigned char* data, int len);",
+      "extern \"C\" int krnln_drawpanel_draw_rect(long long panelHandle, int left, int top, int right, int bottom);",
+      "extern \"C\" int krnln_drawpanel_fill_rect(long long panelHandle, int left, int top, int right, int bottom);",
+      "extern \"C\" int krnln_drawpanel_draw_ellipse(long long panelHandle, int left, int top, int right, int bottom);",
+      "extern \"C\" int krnln_drawpanel_draw_round_rect(long long panelHandle, int left, int top, int right, int bottom, int arcWidth, int arcHeight);",
+      "extern \"C\" int krnln_drawpanel_invert_rect(long long panelHandle, int left, int top, int right, int bottom);",
+      "extern \"C\" int krnln_drawpanel_arc(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);",
+      "extern \"C\" int krnln_drawpanel_chord(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);",
+      "extern \"C\" int krnln_drawpanel_pie(long long panelHandle, int left, int top, int right, int bottom, int startX, int startY, int endX, int endY);",
+      "extern \"C\" int krnln_drawpanel_unit_cnv(long long panelHandle, int value, int valueType);",
+      "extern \"C\" int krnln_drawpanel_set_write_pos(long long panelHandle, int x, int y);",
+      "extern \"C\" int krnln_drawpanel_write(long long panelHandle, const wchar_t* text);",
+      "extern \"C\" int krnln_drawpanel_print(long long panelHandle, const wchar_t* text);",
+      "extern \"C\" int krnln_drawpanel_say(long long panelHandle, int x, int y, const wchar_t* text);",
+      "extern \"C\" int krnln_drawpanel_get_text_width(long long panelHandle, const wchar_t* text);",
+      "extern \"C\" int krnln_drawpanel_get_text_height(long long panelHandle, const wchar_t* text);",
+      "extern \"C\" int krnln_drawpanel_draw_jb_rect(long long panelHandle, int left, int top, int width, int height, int direction, int color1, int color2);",
+      "extern \"C\" int krnln_drawpanel_copy(long long srcPanelHandle, int left, int top, int width, int height, long long dstPanelHandle, int dstLeft, int dstTop, int mode);",
+      "extern \"C\" int krnln_drawpanel_draw_pic(long long panelHandle, long long picHandle, int x, int y, int width, int height, int mode);",
+      "extern \"C\" int krnln_drawpanel_get_pic_width(long long panelHandle, long long picHandle);",
+      "extern \"C\" int krnln_drawpanel_get_pic_height(long long panelHandle, long long picHandle);",
+      "double krnln_math_add2(double left, double right);",
+      "wchar_t* krnln_math_add2(const wchar_t* left, const wchar_t* right);",
+      "YC_BIN krnln_math_add2(const YC_BIN& left, const YC_BIN& right);",
+      "double krnln_math_sub2(double left, double right);",
+      "double krnln_math_mul2(double left, double right);",
+      "double krnln_math_div2(double left, double right);",
+      "double krnln_math_idiv2(double left, double right);",
+      "double krnln_math_mod2(double left, double right);",
+      "double krnln_math_neg(double value);",
+      "int krnln_math_sgn(double value);",
+      "double krnln_math_abs(double value);",
+      "int krnln_math_int(double value);",
+      "int krnln_math_fix(double value);",
+      "double krnln_math_round(double value, int digitPos);",
+      "double krnln_math_pow(double value, double expValue);",
+      "double krnln_math_sqr(double value);",
+      "double krnln_math_sin(double value);",
+      "double krnln_math_cos(double value);",
+      "double krnln_math_tan(double value);",
+      "double krnln_math_atn(double value);",
+      "double krnln_math_log(double value);",
+      "double krnln_math_exp(double value);",
+      "int krnln_math_is_calc_ok(double value);",
+      "int krnln_math_randomize(int seed);",
+      "int krnln_math_rnd(int minValue, int maxValue);",
+      "long long krnln_fs_disk_total_kb(const wchar_t* driveText);",
+      "long long krnln_fs_disk_free_kb(const wchar_t* driveText);",
+      "wchar_t* krnln_fs_get_disk_label(const wchar_t* driveText);",
+      "int krnln_fs_set_disk_label(const wchar_t* driveText, const wchar_t* label);",
+      "int krnln_fs_change_drive(const wchar_t* driveText);",
+      "int krnln_fs_change_dir(const wchar_t* path);",
+      "wchar_t* krnln_fs_get_current_dir(void);",
+      "int krnln_fs_create_dir(const wchar_t* path);",
+      "int krnln_fs_remove_dir_all(const wchar_t* path);",
+      "int krnln_fs_copy_file(const wchar_t* src, const wchar_t* dst);",
+      "int krnln_fs_move_file(const wchar_t* src, const wchar_t* dst);",
+      "int krnln_fs_delete_file(const wchar_t* path);",
+      "int krnln_fs_rename_path(const wchar_t* src, const wchar_t* dst);",
+      "int krnln_fs_file_exists(const wchar_t* path);",
+      "wchar_t* krnln_fs_dir(const wchar_t* pattern, int attr);",
+      "int krnln_fs_file_len(const wchar_t* path);",
+      "int krnln_fs_get_attr(const wchar_t* path);",
+      "int krnln_fs_set_attr(const wchar_t* path, int attr);",
+      "wchar_t* krnln_fs_get_temp_file_name(const wchar_t* dir);",
+      "YC_BIN krnln_fs_read_file_bin(const wchar_t* path);",
+      "int krnln_fs_write_file_bins(const wchar_t* path, const std::vector<YC_BIN>& parts);",
+      "YC_BIN krnln_to_bin(const YC_BIN& value);",
+      "YC_BIN krnln_to_bin(const wchar_t* text);",
+      "YC_BIN krnln_to_bin(wchar_t* text);",
+      "YC_BIN krnln_to_bin(const char* text);",
+      "YC_BIN krnln_to_bin(char* text);",
+      "YC_BIN krnln_to_bin(bool value);",
+      "YC_BIN krnln_to_bin(short value);",
+      "YC_BIN krnln_to_bin(unsigned short value);",
+      "YC_BIN krnln_to_bin(int value);",
+      "YC_BIN krnln_to_bin(unsigned int value);",
+      "YC_BIN krnln_to_bin(long value);",
+      "YC_BIN krnln_to_bin(unsigned long value);",
+      "YC_BIN krnln_to_bin(long long value);",
+      "YC_BIN krnln_to_bin(unsigned long long value);",
+      "YC_BIN krnln_to_bin(float value);",
+      "YC_BIN krnln_to_bin(double value);",
+      "int krnln_bin_len(const YC_BIN& value);",
+      "YC_BIN krnln_bin_left(const YC_BIN& value, int count);",
+      "YC_BIN krnln_bin_right(const YC_BIN& value, int count);",
+      "YC_BIN krnln_bin_mid(const YC_BIN& value, int startPos, int count);",
+      "int krnln_bin_find(const YC_BIN& haystack, const YC_BIN& needle, int startPos);",
+      "int krnln_bin_rfind(const YC_BIN& haystack, const YC_BIN& needle, int startPos);",
+      "YC_BIN krnln_bin_replace(const YC_BIN& value, int startPos, int replaceLen, const YC_BIN& repl);",
+      "YC_BIN krnln_bin_replace_sub(const YC_BIN& value, const YC_BIN& from, const YC_BIN& to, int startPos, int replaceCount);",
+      "YC_BIN krnln_bin_space(int count);",
+      "YC_BIN krnln_bin_repeat(int count, const YC_BIN& value);",
+      "YC_BIN krnln_bin_from_address(long long ptrValue, int len);",
+      "int krnln_ptr_to_int(long long ptrValue);",
+      "float krnln_ptr_to_float(long long ptrValue);",
+      "double krnln_ptr_to_double(long long ptrValue);",
+      "extern \"C\" int krnln_bin_get_int(const YC_BIN& value, int offset, int reverseBytes);",
+      "extern \"C\" int krnln_bin_set_int(YC_BIN& value, int offset, int data, int reverseBytes);",
+      "extern \"C\" int krnln_text_len(const wchar_t* text);",
+      "int krnln_text_len(int value);",
+      "int krnln_text_len(double value);",
+      "int krnln_text_len(bool value);",
+      "int krnln_text_len(const YC_BIN& value);",
+      "extern \"C\" wchar_t* krnln_text_left(const wchar_t* text, int count);",
+      "wchar_t* krnln_text_left(int value, int count);",
+      "wchar_t* krnln_text_left(double value, int count);",
+      "wchar_t* krnln_text_left(bool value, int count);",
+      "wchar_t* krnln_text_left(const YC_BIN& value, int count);",
+      "extern \"C\" wchar_t* krnln_text_right(const wchar_t* text, int count);",
+      "wchar_t* krnln_text_right(int value, int count);",
+      "wchar_t* krnln_text_right(double value, int count);",
+      "wchar_t* krnln_text_right(bool value, int count);",
+      "wchar_t* krnln_text_right(const YC_BIN& value, int count);",
+      "extern \"C\" wchar_t* krnln_text_mid(const wchar_t* text, int startPos, int count);",
+      "wchar_t* krnln_text_mid(int value, int startPos, int count);",
+      "wchar_t* krnln_text_mid(double value, int startPos, int count);",
+      "wchar_t* krnln_text_mid(bool value, int startPos, int count);",
+      "wchar_t* krnln_text_mid(const YC_BIN& value, int startPos, int count);",
+      "extern \"C\" wchar_t* krnln_text_chr(int code);",
+      "extern \"C\" int krnln_text_asc(const wchar_t* text, int pos);",
+      "extern \"C\" int krnln_text_instr(const wchar_t* haystack, const wchar_t* needle, int startPos, int ignoreCase);",
+      "extern \"C\" int krnln_text_instrrev(const wchar_t* haystack, const wchar_t* needle, int startPos, int ignoreCase);",
+      "extern \"C\" wchar_t* krnln_text_ucase(const wchar_t* text);",
+      "wchar_t* krnln_text_ucase(int value);",
+      "wchar_t* krnln_text_ucase(double value);",
+      "wchar_t* krnln_text_ucase(const YC_BIN& value);",
+      "extern \"C\" wchar_t* krnln_text_lcase(const wchar_t* text);",
+      "wchar_t* krnln_text_lcase(int value);",
+      "wchar_t* krnln_text_lcase(double value);",
+      "wchar_t* krnln_text_lcase(const YC_BIN& value);",
+      "extern \"C\" wchar_t* krnln_text_qjcase(const wchar_t* text);",
+      "extern \"C\" wchar_t* krnln_text_bjcase(const wchar_t* text);",
+      "extern \"C\" wchar_t* krnln_text_ltrim(const wchar_t* text);",
+      "extern \"C\" wchar_t* krnln_text_rtrim(const wchar_t* text);",
+      "extern \"C\" wchar_t* krnln_text_trim(const wchar_t* text);",
+      "extern \"C\" wchar_t* krnln_text_trimall(const wchar_t* text);",
+      "extern \"C\" wchar_t* krnln_text_replace(const wchar_t* text, int startPos, int length, const wchar_t* replacement);",
+      "extern \"C\" wchar_t* krnln_text_rpsubtext(const wchar_t* text, const wchar_t* subText, const wchar_t* replacement, int startPos, int count, int caseSensitive);",
+      "extern \"C\" wchar_t* krnln_text_space(int count);",
+      "extern \"C\" wchar_t* krnln_text_string(int count, const wchar_t* text);",
+      "extern \"C\" int krnln_text_strcomp(const wchar_t* text1, const wchar_t* text2, int caseSensitive);",
+      "extern \"C\" wchar_t* krnln_text_pstr(intptr_t ptr);",
+      "YC_BIN krnln_text_to_utf8(const wchar_t* text);",
+      "wchar_t* krnln_text_from_utf8(const YC_BIN& utf8Data);",
+      "YC_BIN krnln_text_to_utf16(const wchar_t* text);",
+      "wchar_t* krnln_text_from_utf16(const YC_BIN& utf16Data);",
+      "extern \"C\" wchar_t* krnln_text_str(const wchar_t* text);",
+      "wchar_t* krnln_text_str(int value);",
+      "wchar_t* krnln_text_str(double value);",
+      "wchar_t* krnln_text_str(bool value);",
+      "wchar_t* krnln_text_str(const YC_BIN& value);"
+    ]
+  },
   "controlBindings": [
     {
       "unit": "按钮",
@@ -71,6 +240,121 @@
     }
   ],
   "commandBindings": [
+    {
+      "library": "krnln",
+      "commandEnglishName": "add",
+      "emit": "{fold:krnln_math_add2|0}"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "sub",
+      "emit": "{fold:krnln_math_sub2|0}"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "mul",
+      "emit": "{fold:krnln_math_mul2|0}"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "div",
+      "emit": "{fold:krnln_math_div2|0}"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "IDiv",
+      "emit": "{fold:krnln_math_idiv2|0}"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "mod",
+      "emit": "{fold:krnln_math_mod2|0}"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "neg",
+      "emit": "krnln_math_neg({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "sgn",
+      "emit": "krnln_math_sgn({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "abs",
+      "emit": "krnln_math_abs({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "int",
+      "emit": "krnln_math_int({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "fix",
+      "emit": "krnln_math_fix({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "round",
+      "emit": "krnln_math_round({0|0}, {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "pow",
+      "emit": "krnln_math_pow({0|0}, {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "sqr",
+      "emit": "krnln_math_sqr({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "sin",
+      "emit": "krnln_math_sin({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "cos",
+      "emit": "krnln_math_cos({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "tan",
+      "emit": "krnln_math_tan({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "atn",
+      "emit": "krnln_math_atn({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "log",
+      "emit": "krnln_math_log({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "exp",
+      "emit": "krnln_math_exp({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "IsCalcOK",
+      "emit": "krnln_math_is_calc_ok({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "randomize",
+      "emit": "krnln_math_randomize({0|-2147483648})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "rnd",
+      "emit": "krnln_math_rnd({0|0}, {1|2147483647})"
+    },
     {
       "library": "krnln",
       "commandEnglishName": "GetDiskTotalSpace",
@@ -263,159 +547,300 @@
     },
     {
       "library": "krnln",
-      "command": "?????",
+      "command": "获取设备句柄",
       "commandEnglishName": "krnln.drawPanel.getHdc",
       "emit": "krnln_drawpanel_get_hdc((long long)({0|0}))"
     },
     {
       "library": "krnln",
-      "command": "??",
+      "command": "清空",
       "commandEnglishName": "krnln.drawPanel.clear",
       "emit": "krnln_drawpanel_clear((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
     },
     {
       "library": "krnln",
-      "command": "??",
+      "command": "获像素",
       "commandEnglishName": "krnln.drawPanel.getPixel",
       "emit": "krnln_drawpanel_get_pixel((long long)({0|0}), {1|0}, {2|0})"
     },
     {
       "library": "krnln",
-      "command": "??",
+      "command": "设像素",
       "commandEnglishName": "krnln.drawPanel.setPixel",
       "emit": "krnln_drawpanel_set_pixel((long long)({0|0}), {1|0}, {2|0}, {3|0})"
     },
     {
       "library": "krnln",
-      "command": "???",
+      "command": "画直线",
       "commandEnglishName": "krnln.drawPanel.lineTo",
       "emit": "krnln_drawpanel_line((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0})"
     },
     {
       "library": "krnln",
-      "command": "???",
+      "command": "画矩形",
       "commandEnglishName": "krnln.drawPanel.drawRect",
       "emit": "krnln_drawpanel_draw_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
     },
     {
       "library": "krnln",
-      "command": "????",
+      "command": "填充矩形",
       "commandEnglishName": "krnln.drawPanel.fillRect",
       "emit": "krnln_drawpanel_fill_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
     },
     {
       "library": "krnln",
-      "command": "???",
+      "command": "画椭圆",
       "commandEnglishName": "krnln.drawPanel.ellipse",
       "emit": "krnln_drawpanel_draw_ellipse((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
     },
     {
       "library": "krnln",
-      "command": "?????",
+      "command": "画圆角矩形",
       "commandEnglishName": "krnln.drawPanel.roundRect",
       "emit": "krnln_drawpanel_draw_round_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|8}, {6|0})"
     },
     {
       "library": "krnln",
-      "command": "?????",
+      "command": "反色填充",
       "commandEnglishName": "krnln.drawPanel.invertRect",
       "emit": "krnln_drawpanel_invert_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0})"
     },
     {
       "library": "krnln",
-      "command": "???",
+      "command": "画圆弧",
       "commandEnglishName": "krnln.drawPanel.arcTo",
       "emit": "krnln_drawpanel_arc((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0}, {6|0}, {7|0}, {8|0})"
     },
     {
       "library": "krnln",
-      "command": "??",
+      "command": "画弦",
       "commandEnglishName": "krnln.drawPanel.chord",
       "emit": "krnln_drawpanel_chord((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0}, {6|0}, {7|0}, {8|0})"
     },
     {
       "library": "krnln",
-      "command": "??",
+      "command": "画扇形",
       "commandEnglishName": "krnln.drawPanel.pie",
       "emit": "krnln_drawpanel_pie((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|0}, {6|0}, {7|0}, {8|0})"
     },
     {
       "library": "krnln",
-      "command": "????",
+      "command": "单位转换",
       "commandEnglishName": "krnln.drawPanel.unitCnv",
       "emit": "krnln_drawpanel_unit_cnv((long long)({0|0}), {1|0}, {2|0})"
     },
     {
       "library": "krnln",
-      "command": "?????",
+      "command": "设置位置",
       "commandEnglishName": "krnln.drawPanel.setWritePos",
       "emit": "krnln_drawpanel_set_write_pos((long long)({0|0}), {1|0x7fffffff}, {2|0x7fffffff})"
     },
     {
       "library": "krnln",
-      "command": "??",
+      "command": "写字",
       "commandEnglishName": "krnln.drawPanel.write",
       "emit": "krnln_drawpanel_write((long long)({0|0}), {1|L\"\"})"
     },
     {
       "library": "krnln",
-      "command": "????",
+      "command": "打印文字",
       "commandEnglishName": "krnln.drawPanel.print",
       "emit": "krnln_drawpanel_print((long long)({0|0}), {1|L\"\"})"
     },
     {
       "library": "krnln",
-      "command": "????",
+      "command": "输出文字",
       "commandEnglishName": "krnln.drawPanel.sprint",
       "emit": "krnln_drawpanel_print((long long)({0|0}), {1|L\"\"})"
     },
     {
       "library": "krnln",
-      "command": "????",
+      "command": "显示文字",
       "commandEnglishName": "krnln.drawPanel.say",
       "emit": "krnln_drawpanel_say((long long)({0|0}), {1|0x7fffffff}, {2|0x7fffffff}, {3|L\"\"})"
     },
     {
       "library": "krnln",
-      "command": "???",
+      "command": "取宽度",
       "commandEnglishName": "krnln.drawPanel.getWidth",
       "emit": "krnln_drawpanel_get_text_width((long long)({0|0}), {1|L\"\"})"
     },
     {
       "library": "krnln",
-      "command": "???",
+      "command": "取高度",
       "commandEnglishName": "krnln.drawPanel.getHeight",
       "emit": "krnln_drawpanel_get_text_height((long long)({0|0}), {1|L\"\"})"
     },
     {
       "library": "krnln",
-      "command": "?????",
+      "command": "画阶梯矩形",
       "commandEnglishName": "krnln.drawPanel.drawJBRect",
       "emit": "krnln_drawpanel_draw_jb_rect((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, {5|2}, {6|0}, {7|0})"
     },
     {
       "library": "krnln",
-      "command": "??",
+      "command": "复制",
       "commandEnglishName": "krnln.drawPanel.copy",
       "emit": "krnln_drawpanel_copy((long long)({0|0}), {1|0}, {2|0}, {3|0}, {4|0}, (long long)({5|0}), {6|0}, {7|0}, {8|1})"
     },
     {
       "library": "krnln",
-      "command": "???",
+      "command": "画图片",
       "commandEnglishName": "krnln.drawPanel.drawPic",
       "emit": "krnln_drawpanel_draw_pic((long long)({0|0}), (long long)({1|0}), {2|0}, {3|0}, {4|0}, {5|0}, {6|1})"
     },
     {
       "library": "krnln",
-      "command": "?????",
+      "command": "获图宽度",
       "commandEnglishName": "krnln.drawPanel.getPicWidth",
       "emit": "krnln_drawpanel_get_pic_width((long long)({0|0}), (long long)({1|0}))"
     },
     {
       "library": "krnln",
-      "command": "?????",
+      "command": "获图高度",
       "commandEnglishName": "krnln.drawPanel.getPicHeight",
       "emit": "krnln_drawpanel_get_pic_height((long long)({0|0}), (long long)({1|0}))"
+    },
+    {
+      "library": "krnln",
+      "command": "增加文本",
+      "commandEnglishName": "krnln.Edit.AddText",
+      "emit": "krnln_edit_addtext_impl((long long)({0|0}), (const wchar_t*)({1|L\"\"}))"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.len",
+      "emit": "krnln_text_len({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.left",
+      "emit": "krnln_text_left({0|}, {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.right",
+      "emit": "krnln_text_right({0|}, {1|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.mid",
+      "emit": "krnln_text_mid({0|}, {1|1}, {2|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.chr",
+      "emit": "krnln_text_chr({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.asc",
+      "emit": "krnln_text_asc({0|}, {1|1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.instr",
+      "emit": "krnln_text_instr({0|}, {1|}, {2|1}, {3|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.instrrev",
+      "emit": "krnln_text_instrrev({0|}, {1|}, {2|0}, {3|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.ucase",
+      "emit": "krnln_text_ucase({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.lcase",
+      "emit": "krnln_text_lcase({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.qjcase",
+      "emit": "krnln_text_qjcase({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.bjcase",
+      "emit": "krnln_text_bjcase({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.ltrim",
+      "emit": "krnln_text_ltrim({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.rtrim",
+      "emit": "krnln_text_rtrim({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.trim",
+      "emit": "krnln_text_trim({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.trimall",
+      "emit": "krnln_text_trimall({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.replace",
+      "emit": "krnln_text_replace({0|}, {1|1}, {2|0}, {3|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.rpsubtext",
+      "emit": "krnln_text_rpsubtext({0|}, {1|}, {2|}, {3|1}, {4|0}, {5|1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.space",
+      "emit": "krnln_text_space({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.string",
+      "emit": "krnln_text_string({0|0}, {1|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.strcomp",
+      "emit": "krnln_text_strcomp({0|}, {1|}, {2|1})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.pstr",
+      "emit": "krnln_text_pstr({0|0})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.strtoutf8",
+      "emit": "krnln_text_to_utf8({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.utf8tostr",
+      "emit": "krnln_text_from_utf8({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.strtoutf16",
+      "emit": "krnln_text_to_utf16((const wchar_t*)({0|L\"\"}))"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.utf16tostr",
+      "emit": "krnln_text_from_utf16({0|})"
+    },
+    {
+      "library": "krnln",
+      "commandEnglishName": "krnln.text.str",
+      "emit": "krnln_text_str({0|})"
     }
   ]
 }

@@ -19,35 +19,6 @@
   },
   "commands": [
     {
-      "commandId": "krnln.messageBox",
-      "displayName": "信息框",
-      "summary": "弹出一个消息对话框。",
-      "params": [
-        {
-          "name": "text",
-          "type": "文本型"
-        },
-        {
-          "name": "title",
-          "type": "文本型",
-          "optional": true
-        }
-      ],
-      "returnType": "整数型"
-    },
-    {
-      "commandId": "krnln.textLength",
-      "displayName": "取文本长度",
-      "summary": "返回 UTF-8 文本字节长度。",
-      "params": [
-        {
-          "name": "text",
-          "type": "文本型"
-        }
-      ],
-      "returnType": "整数型"
-    },
-    {
       "commandId": "krnln.drawPanel.getHdc",
       "displayName": "取设备句柄",
       "summary": "返回画板当前设备句柄（HDC）。",
@@ -1881,6 +1852,801 @@
         }
       ],
       "returnType": ""
+    },
+    {
+      "commandId": "mul",
+      "displayName": "相乘",
+      "summary": "返回两个数值的乘积，运算符号为\"*\"或\"×\"",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "被乘数",
+          "type": "双精度小数型"
+        },
+        {
+          "name": "乘数",
+          "type": "双精度小数型",
+          "repeatable": true
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "div",
+      "displayName": "相除",
+      "summary": "返回两个数值的商，运算符号为\"/\"或\"÷\"",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "被除数",
+          "type": "双精度小数型"
+        },
+        {
+          "name": "除数",
+          "type": "双精度小数型",
+          "repeatable": true
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "IDiv",
+      "displayName": "整除",
+      "summary": "求出两个数值的商，并返回其整数部分，运算符号为\"\\\"",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "被除数",
+          "type": "双精度小数型"
+        },
+        {
+          "name": "除数",
+          "type": "双精度小数型",
+          "repeatable": true
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "mod",
+      "displayName": "求余数",
+      "summary": "求出两个数值的商，并返回余数部分，运算符号为\"%\"或\"Mod\"",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "被除数",
+          "type": "双精度小数型"
+        },
+        {
+          "name": "除数",
+          "type": "双精度小数型",
+          "repeatable": true
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "add",
+      "displayName": "相加",
+      "summary": "返回两个数值的和；连接两个文本；连接两个字节集，运算符号为\"+\"",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "被加数或文本或字节集",
+          "type": "通用型"
+        },
+        {
+          "name": "加数或文本或字节集",
+          "type": "通用型",
+          "repeatable": true
+        }
+      ],
+      "returnType": "通用型"
+    },
+    {
+      "commandId": "sub",
+      "displayName": "相减",
+      "summary": "返回两个数值的差，运算符号为\"-\"",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "被减数",
+          "type": "双精度小数型"
+        },
+        {
+          "name": "减数",
+          "type": "双精度小数型",
+          "repeatable": true
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "neg",
+      "displayName": "负",
+      "summary": "反转一个数值的正负符号",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "数值",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "sgn",
+      "displayName": "取符号",
+      "summary": "返回整数表示给定数值符号：-1为负、0为零、1为正",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲取其符号的数值",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "abs",
+      "displayName": "取绝对值",
+      "summary": "返回指定参数的绝对值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲取其绝对值的数值",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "int",
+      "displayName": "取整",
+      "summary": "返回一个小数的整数部分",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲取整的小数",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "fix",
+      "displayName": "绝对取整",
+      "summary": "返回一个小数的整数部分",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲取整的小数",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "round",
+      "displayName": "四舍五入",
+      "summary": "返回按照指定方式进行四舍五入运算的结果",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲被四舍五入的数值",
+          "type": "双精度小数型"
+        },
+        {
+          "name": "被舍入的位置",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "pow",
+      "displayName": "求次方",
+      "summary": "返回指定数值的指定次方",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲求次方数值",
+          "type": "双精度小数型"
+        },
+        {
+          "name": "次方数",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "sqr",
+      "displayName": "求平方根",
+      "summary": "返回指定参数的平方根",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲求其平方根的数值",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "sin",
+      "displayName": "求正弦",
+      "summary": "返回指定角的正弦值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲进行计算的角",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "cos",
+      "displayName": "求余弦",
+      "summary": "返回指定角的余弦值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲进行计算的角",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "tan",
+      "displayName": "求正切",
+      "summary": "返回指定角的正切值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲进行计算的角",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "atn",
+      "displayName": "求反正切",
+      "summary": "返回指定数的反正切值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲求其反正切值的数值",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "log",
+      "displayName": "求自然对数",
+      "summary": "返回指定参数的自然对数值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲求其自然对数的数值",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "exp",
+      "displayName": "求反对数",
+      "summary": "返回 e（自然对数的底）的某次方",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲求其反对数的数值",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "双精度小数型"
+    },
+    {
+      "commandId": "IsCalcOK",
+      "displayName": "是否运算正确",
+      "summary": "校验数学运算结果是否正确有效",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲校验的计算结果",
+          "type": "双精度小数型"
+        }
+      ],
+      "returnType": "逻辑型"
+    },
+    {
+      "commandId": "randomize",
+      "displayName": "置随机数种子",
+      "summary": "为随机数生成器初始化一个种子值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲置入的种子数值",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
+      "commandId": "rnd",
+      "displayName": "取随机数",
+      "summary": "返回一个指定范围内的随机数值",
+      "category": "算术运算",
+      "params": [
+        {
+          "name": "欲取随机数的最小值",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "欲取随机数的最大值",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "整整型"
+    },
+    {
+      "commandId": "krnln.text.len",
+      "displayName": "取文本长度",
+      "summary": "取文本型数据的长度，不包含结束0。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "文本数据",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.text.left",
+      "displayName": "取文本左边",
+      "summary": "返回一个文本，其中包含指定文本中从左边算起指定数量的字符。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲取其部分的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "欲取出字符的数目",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.right",
+      "displayName": "取文本右边",
+      "summary": "返回一个文本，其中包含指定文本中从右边算起指定数量的字符。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲取其部分的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "欲取出字符的数目",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.mid",
+      "displayName": "取文本中间",
+      "summary": "返回一个文本，其中包含指定文本中从指定位置算起指定数量的字符。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲取其部分的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "起始取出位置",
+          "type": "整数型"
+        },
+        {
+          "name": "欲取出字符的数目",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.chr",
+      "displayName": "字符",
+      "summary": "返回一个文本，其中包含有与指定字符代码相关的字符。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲取其字符的字符代码",
+          "type": "字节型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.asc",
+      "displayName": "取代码",
+      "summary": "返回文本中指定位置处字符的代码。如果指定位置超出文本长度，返回0。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲取字符代码的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "欲取其代码的字符位置",
+          "type": "整数型",
+          "optional": true
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.text.instr",
+      "displayName": "寻找文本",
+      "summary": "返回一个整数值，指定一文本在另一文本中最先出现的位置。如果未找到，返回-1。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "被搜寻的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "欲寻找的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "起始搜寻位置",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "是否不区分大小写",
+          "type": "逻辑型",
+          "optional": true
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.text.instrrev",
+      "displayName": "倒找文本",
+      "summary": "返回一个整数值，指定一文本在另一文本中最后出现的位置。如果未找到，返回-1。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "被搜寻的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "欲寻找的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "起始搜寻位置",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "是否不区分大小写",
+          "type": "逻辑型",
+          "optional": true
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.text.ucase",
+      "displayName": "到大写",
+      "summary": "将文本中的小写英文字母变换为大写，返回变换后的结果文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲变换的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.lcase",
+      "displayName": "到小写",
+      "summary": "将文本中的大写英文字母变换为小写，返回变换后的结果文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲变换的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.qjcase",
+      "displayName": "到全角",
+      "summary": "将文本中的半角字母、空格或数字变换为全角，返回变换后的结果文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲变换的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.bjcase",
+      "displayName": "到半角",
+      "summary": "将文本中的全角字母、空格或数字变换为半角，返回变换后的结果文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲变换的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.ltrim",
+      "displayName": "删首空",
+      "summary": "返回一个文本，其中包含被删除了首部全角或半角空格的指定文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲删除空格的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.rtrim",
+      "displayName": "删尾空",
+      "summary": "返回一个文本，其中包含被删除了尾部全角或半角空格的指定文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲删除空格的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.trim",
+      "displayName": "删首尾空",
+      "summary": "返回一个文本，其中包含被删除了首部及尾部全角或半角空格的指定文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲删除空格的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.trimall",
+      "displayName": "删全部空",
+      "summary": "返回一个文本，其中包含被删除了所有全角或半角空格的指定文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲删除空格的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.replace",
+      "displayName": "文本替换",
+      "summary": "将指定文本的某一部分用其它的文本替换。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲被替换的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "起始替换位置",
+          "type": "整数型"
+        },
+        {
+          "name": "替换长度",
+          "type": "整数型"
+        },
+        {
+          "name": "用作替换的文本",
+          "type": "文本型",
+          "optional": true
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.rpsubtext",
+      "displayName": "子文本替换",
+      "summary": "返回一个文本，该文本中指定的子文本已被替换成另一子文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "欲被替换的文本",
+          "type": "文本型"
+        },
+        {
+          "name": "欲被替换的子文本",
+          "type": "文本型"
+        },
+        {
+          "name": "用作替换的子文本",
+          "type": "文本型",
+          "optional": true
+        },
+        {
+          "name": "进行替换的起始位置",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "替换进行的次数",
+          "type": "整数型",
+          "optional": true
+        },
+        {
+          "name": "是否区分大小写",
+          "type": "逻辑型",
+          "optional": true
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.space",
+      "displayName": "取空白文本",
+      "summary": "返回具有指定数目半角空格的文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "重复次数",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.string",
+      "displayName": "取重复文本",
+      "summary": "返回一个文本，其中包含指定次数的文本重复结果。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "重复次数",
+          "type": "整数型"
+        },
+        {
+          "name": "待重复文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.strcomp",
+      "displayName": "文本比较",
+      "summary": "比较两个文本。返回值小于0表示文本一小于文本二，等于0表示相等，大于0表示文本一大于文本二。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "待比较文本一",
+          "type": "文本型"
+        },
+        {
+          "name": "待比较文本二",
+          "type": "文本型"
+        },
+        {
+          "name": "是否区分大小写",
+          "type": "逻辑型",
+          "optional": true
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "krnln.text.pstr",
+      "displayName": "指针到文本",
+      "summary": "返回指定内存指针所指向地址处的文本。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "内存文本指针",
+          "type": "整数型"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.strtoutf8",
+      "displayName": "文本到UTF8",
+      "summary": "将所指定文本转换到UTF8格式后返回。返回的UTF8文本数据包括结束零字符。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "待转换的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "krnln.text.utf8tostr",
+      "displayName": "UTF8到文本",
+      "summary": "将所指定UTF8文本数据转换到通常文本后返回。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "待转换的UTF8文本数据",
+          "type": "字节集"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.strtoutf16",
+      "displayName": "文本到UTF16",
+      "summary": "将所指定文本转换到UTF16格式后返回。返回的UTF16文本数据包括结束零字符。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "待转换的文本",
+          "type": "文本型"
+        }
+      ],
+      "returnType": "字节集"
+    },
+    {
+      "commandId": "krnln.text.utf16tostr",
+      "displayName": "UTF16到文本",
+      "summary": "将所指定UTF16文本数据转换到通常文本后返回。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "待转换的UTF16文本数据",
+          "type": "字节集"
+        }
+      ],
+      "returnType": "文本型"
+    },
+    {
+      "commandId": "krnln.text.str",
+      "displayName": "到文本",
+      "summary": "返回一个文本，代表指定数值、逻辑值或日期时间被转换后的结果。",
+      "category": "文本操作",
+      "params": [
+        {
+          "name": "待转换的数据",
+          "type": "通用型"
+        }
+      ],
+      "returnType": "文本型"
     }
   ]
 }
