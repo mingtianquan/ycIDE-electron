@@ -639,37 +639,37 @@
       "library": "krnln",
       "command": "写字",
       "commandEnglishName": "krnln.drawPanel.write",
-      "emit": "krnln_drawpanel_write((long long)({0|0}), {1|L\"\"})"
+      "emit": "krnln_drawpanel_write((long long)({0|0}), krnln_text_str({1|L\"\"}))"
     },
     {
       "library": "krnln",
       "command": "打印文字",
       "commandEnglishName": "krnln.drawPanel.print",
-      "emit": "krnln_drawpanel_print((long long)({0|0}), {1|L\"\"})"
+      "emit": "krnln_drawpanel_print((long long)({0|0}), krnln_text_str({1|L\"\"}))"
     },
     {
       "library": "krnln",
       "command": "输出文字",
       "commandEnglishName": "krnln.drawPanel.sprint",
-      "emit": "krnln_drawpanel_print((long long)({0|0}), {1|L\"\"})"
+      "emit": "krnln_drawpanel_print((long long)({0|0}), krnln_text_str({1|L\"\"}))"
     },
     {
       "library": "krnln",
       "command": "显示文字",
       "commandEnglishName": "krnln.drawPanel.say",
-      "emit": "krnln_drawpanel_say((long long)({0|0}), {1|0x7fffffff}, {2|0x7fffffff}, {3|L\"\"})"
+      "emit": "krnln_drawpanel_say((long long)({0|0}), {1|0x7fffffff}, {2|0x7fffffff}, krnln_text_str({3|L\"\"}))"
     },
     {
       "library": "krnln",
       "command": "取宽度",
       "commandEnglishName": "krnln.drawPanel.getWidth",
-      "emit": "krnln_drawpanel_get_text_width((long long)({0|0}), {1|L\"\"})"
+      "emit": "krnln_drawpanel_get_text_width((long long)({0|0}), krnln_text_str({1|L\"\"}))"
     },
     {
       "library": "krnln",
       "command": "取高度",
       "commandEnglishName": "krnln.drawPanel.getHeight",
-      "emit": "krnln_drawpanel_get_text_height((long long)({0|0}), {1|L\"\"})"
+      "emit": "krnln_drawpanel_get_text_height((long long)({0|0}), krnln_text_str({1|L\"\"}))"
     },
     {
       "library": "krnln",

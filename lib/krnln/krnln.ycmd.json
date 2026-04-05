@@ -1854,6 +1854,220 @@
       "returnType": ""
     },
     {
+      "commandId": "ReDim",
+      "displayName": "重定义数组",
+      "summary": "本命令可以重新定义指定数组的维数及各维的上限值。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "欲重定义的数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        },
+        {
+          "name": "是否保留以前的内容",
+          "type": "逻辑型",
+          "optional": true,
+          "description": "初始值为“假”。"
+        },
+        {
+          "name": "数组对应维的上限值",
+          "type": "整数型",
+          "repeatable": true,
+          "description": "最后一个参数可以被重复添加。"
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
+      "commandId": "GetAryElementCount",
+      "displayName": "取数组成员数",
+      "summary": "取指定数组变量的全部成员数目，如果该变量不为数组，返回 -1，因此本命令也可以用作检查指定变量是否为数组变量。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "欲检查的变量",
+          "type": "通用型",
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量及变量数组。参数值指定欲检查其成员数目的数组变量或者欲检查其是否为数组的变量。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "UBound",
+      "displayName": "取数组下标",
+      "summary": "返回指定数组维可用的最大下标（最小下标固定为1）。如果给定变量不为数组变量或指定维不存在，返回 0。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "欲取某维最大下标的数组变量",
+          "type": "通用型",
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量及变量数组。"
+        },
+        {
+          "name": "欲取其最大下标的维",
+          "type": "整数型",
+          "optional": true,
+          "description": "可以被省略。1 表示第一维，2 表示第二维，如此类推。如果省略本参数，默认值是 1。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "CopyAry",
+      "displayName": "复制数组",
+      "summary": "将数组数据复制到指定的数组变量，该数组变量内的所有数据和数组维定义信息将被全部覆盖。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "复制到的数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        },
+        {
+          "name": "待复制的数组数据",
+          "type": "通用型",
+          "isArray": true,
+          "description": "提供参数数据时只能提供数组数据。"
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
+      "commandId": "AddElement",
+      "displayName": "加入成员",
+      "summary": "将数据加入到指定数组变量的尾部，并通过重新定义数组维数自动增加其成员数目。数组变量如为多维数组，加入完毕后将被转换为单维数组。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "欲加入成员的数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        },
+        {
+          "name": "欲加入的成员数据",
+          "type": "通用型",
+          "description": "提供参数数据时可以同时提供数组或非数组数据。参数值所指定成员数据的数据类型必须能够与第一个参数所指定的数组变量相匹配。"
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
+      "commandId": "InsElement",
+      "displayName": "插入成员",
+      "summary": "将数据插入到指定数组变量的指定位置，并通过重新定义数组维数自动增加其成员数目。数组变量如为多维数组，插入完毕后将被转换为单维数组。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "欲插入成员的数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        },
+        {
+          "name": "欲插入的位置",
+          "type": "整数型",
+          "description": "位置值从 1 开始，如果小于 1 或大于第一个参数所指定数组变量的成员数目 + 1，将不会插入任何数据。"
+        },
+        {
+          "name": "欲插入的成员数据",
+          "type": "通用型",
+          "description": "提供参数数据时可以同时提供数组或非数组数据。参数值所指定成员数据的数据类型必须能够与第一个参数所指定的数组变量相匹配。"
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
+      "commandId": "RemoveElement",
+      "displayName": "删除成员",
+      "summary": "删除指定数组变量中的成员，并通过重新定义数组维数自动减少其成员数目。数组变量如为多维数组，删除完毕后将被转换为单维数组。返回所实际删除的成员数目。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "欲删除成员的数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        },
+        {
+          "name": "欲删除的位置",
+          "type": "整数型",
+          "description": "位置值从 1 开始，如果小于 1 或大于第一个参数所指定数组变量的成员数目，将不会删除任何数据。"
+        },
+        {
+          "name": "欲删除的成员数目",
+          "type": "整数型",
+          "optional": true,
+          "description": "可以被省略。本参数如果被省略，默认为 1。"
+        }
+      ],
+      "returnType": "整数型"
+    },
+    {
+      "commandId": "RemoveAll",
+      "displayName": "清除数组",
+      "summary": "删除指定数组变量中的所有成员，释放这些成员所占用的存储空间，重新定义该变量为单维 0 成员数组变量。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "欲删除成员的数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
+      "commandId": "SortAry",
+      "displayName": "数组排序",
+      "summary": "对指定数值数组变量内的所有数组成员进行快速排序，不影响数组的维定义信息，排序结果存放回该数组变量。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "数值数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        },
+        {
+          "name": "排序方向是否为从小到大",
+          "type": "逻辑型",
+          "optional": true,
+          "description": "可以被省略。如果参数值为真，排序方向为从小到大，否则为从大到小。如果本参数被省略，默认值为真。"
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
+      "commandId": "ZeroAry",
+      "displayName": "数组清零",
+      "summary": "将指定数值数组变量内的所有成员值全部设置为零，不影响数组的维定义信息。本命令为初级命令。",
+      "category": "数组操作",
+      "params": [
+        {
+          "name": "数值数组变量",
+          "type": "通用型",
+          "isArray": true,
+          "isVariable": true,
+          "description": "提供参数数据时只能提供变量数组。"
+        }
+      ],
+      "returnType": "无返回值"
+    },
+    {
       "commandId": "mul",
       "displayName": "相乘",
       "summary": "返回两个数值的乘积，运算符号为\"*\"或\"×\"",

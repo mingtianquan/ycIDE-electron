@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './OutputPanel.css'
+import { formatCommandEnglishNameForHint } from '../../utils/commandEnglishName'
 
 export interface OutputMessage {
   type: 'info' | 'success' | 'error' | 'warning'
@@ -249,15 +250,16 @@ function OutputPanel({ height, onResize, onClose, messages = [], commandDetail, 
               : ''
             const retLabel = cd.returnType ? `〈${cd.returnType}〉` : '〈无返回值〉'
             const source = [cd.libraryName, cd.category].filter(Boolean).join('->')
+            const hintEnglishName = formatCommandEnglishNameForHint(cd)
             return (
               <div className="cmd-detail">
                 <div className="cmd-detail-call">
                   <span className="cmd-detail-label">调用格式：</span>
                   {retLabel} {cd.name} （{paramSig}）{source && <> - {source}</>}
                 </div>
-                {cd.englishName && (
+                {hintEnglishName && (
                   <div className="cmd-detail-eng">
-                    <span className="cmd-detail-label">英文名称：</span>{cd.englishName}
+                    <span className="cmd-detail-label">英文名称：</span>{hintEnglishName}
                   </div>
                 )}
                 {cd.description && (
