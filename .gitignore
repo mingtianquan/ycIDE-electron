@@ -20,3 +20,6 @@ resources/Visual Studio 2022 Image Library/
 
 # Zig toolchain binaries are downloaded locally (single binary can exceed GitHub 100MB limit)
 compiler/zig/
+
+# Build artifacts for krnln
+lib/krnln/build/
