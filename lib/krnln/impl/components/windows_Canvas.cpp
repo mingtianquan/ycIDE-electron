@@ -504,6 +504,43 @@ static void set_canvas_pic_data(CanvasState* state, const unsigned char* data, i
   rebuild_canvas_bitmap(state);
 }
 
+static bool text_contains_emoji_candidate(const wchar_t* text) {
+  if (!text) return false;
+  for (size_t i = 0; text[i] != 0; ++i) {
+    const wchar_t ch = text[i];
+    uint32_t cp = static_cast<uint32_t>(ch);
+    if (ch >= 0xD800 && ch <= 0xDBFF) {
+      const wchar_t low = text[i + 1];
+      if (low >= 0xDC00 && low <= 0xDFFF) {
+        cp = ((static_cast<uint32_t>(ch - 0xD800) << 10) |
+              static_cast<uint32_t>(low - 0xDC00)) + 0x10000u;
+        ++i;
+      }
+    }
+    if ((cp >= 0x1F300u && cp <= 0x1FAFFu) ||
+        (cp >= 0x2600u && cp <= 0x27BFu)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool font_can_render_text(HDC dc, HFONT font, const wchar_t* text) {
+  if (!dc || !text) return false;
+  const int len = static_cast<int>(std::wcslen(text));
+  if (len <= 0) return true;
+  HGDIOBJ oldFont = nullptr;
+  if (font) oldFont = SelectObject(dc, font);
+  std::vector<WORD> glyphs(static_cast<size_t>(len), 0);
+  const DWORD rc = GetGlyphIndicesW(dc, text, len, glyphs.data(), GGI_MARK_NONEXISTING_GLYPHS);
+  if (font && oldFont) SelectObject(dc, oldFont);
+  if (rc == GDI_ERROR) return false;
+  for (WORD glyph : glyphs) {
+    if (glyph == 0xFFFF) return false;
+  }
+  return true;
+}
+
 static bool draw_canvas_text(HWND hwnd, CanvasState* state, const wchar_t* text, bool moveNextLine, bool keepOldPos) {
   if (!state || !text) return false;
   const int len = static_cast<int>(std::wcslen(text));
@@ -518,8 +555,25 @@ static bool draw_canvas_text(HWND hwnd, CanvasState* state, const wchar_t* text,
   if (!dc) return false;
 
   HFONT font = reinterpret_cast<HFONT>(SendMessageW(hwnd, WM_GETFONT, 0, 0));
+  HFONT fallbackFont = nullptr;
+  HFONT activeFont = font;
+  // 按需“切换”字体：仅在当前字体缺少 emoji 字形时临时创建并选中 Segoe UI Emoji。
+  // 绘制完成后会恢复 oldFont，并释放 fallbackFont，不会改写控件原始字体属性。
+  if (text_contains_emoji_candidate(text) && !font_can_render_text(dc, font, text)) {
+    LOGFONTW lf{};
+    if (font) {
+      GetObjectW(font, sizeof(lf), &lf);
+    } else {
+      lf.lfHeight = -16;
+      lf.lfCharSet = DEFAULT_CHARSET;
+    }
+    std::wcsncpy(lf.lfFaceName, L"Segoe UI Emoji", LF_FACESIZE - 1);
+    lf.lfFaceName[LF_FACESIZE - 1] = 0;
+    fallbackFont = CreateFontIndirectW(&lf);
+    if (fallbackFont) activeFont = fallbackFont;
+  }
   HGDIOBJ oldFont = nullptr;
-  if (font) oldFont = SelectObject(dc, font);
+  if (activeFont) oldFont = SelectObject(dc, activeFont);
 
   const int oldBkMode = SetBkMode(dc, OPAQUE);
   const COLORREF oldTextColor = SetTextColor(dc, state->textColor);
@@ -546,6 +600,7 @@ static bool draw_canvas_text(HWND hwnd, CanvasState* state, const wchar_t* text,
   SetBkColor(dc, oldBkColor);
   SetBkMode(dc, oldBkMode);
   if (oldFont) SelectObject(dc, oldFont);
+  if (fallbackFont) DeleteObject(fallbackFont);
 
   if (state->autoRedraw) {
     release_canvas_surface_dc(dc, oldSurface);
