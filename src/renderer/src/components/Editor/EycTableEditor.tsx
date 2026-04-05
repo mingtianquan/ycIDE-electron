@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { matchScore, isEnglishMatch } from '../../utils/pinyin'
+import { formatCommandEnglishNameForHint } from '../../utils/commandEnglishName'
 import { eycToYiFormat, sanitizePastedTextForCurrent, normalizeEycText } from './eycFormat'
 import {
   buildBlocks,
@@ -4652,9 +4653,12 @@ const EycTableEditor = forwardRef<EycTableEditorHandle, EycTableEditorProps>(fun
                       : getCmdIconLabel(item.cmd.category)}
                 </span>
                 <span className="eyc-ac-name">
-                  {item.isMore
-                    ? `...（双击显示剩余 ${item.remainCount || 0} 项）`
-                    : `${item.cmd.name}${item.engMatch && item.cmd.englishName ? `（${item.cmd.englishName}）` : ''}`}
+                  {(() => {
+                    const hintEnglishName = formatCommandEnglishNameForHint(item.cmd)
+                    return item.isMore
+                      ? `...（双击显示剩余 ${item.remainCount || 0} 项）`
+                      : `${item.cmd.name}${item.engMatch && hintEnglishName ? `（${hintEnglishName}）` : ''}`
+                  })()}
                 </span>
                 {!item.isMore && (item.cmd.category.includes('常量') || item.cmd.category.includes('资源')) && item.cmd.libraryName && (
                   <span className="eyc-ac-source">{item.cmd.libraryName}</span>
@@ -4686,15 +4690,16 @@ const EycTableEditor = forwardRef<EycTableEditorHandle, EycTableEditorProps>(fun
               : ''
             const retLabel = ci.returnType ? `〈${ci.returnType}〉` : '〈无返回值〉'
             const source = [ci.libraryName, ci.category].filter(Boolean).join('->')
+            const hintEnglishName = formatCommandEnglishNameForHint(ci)
             return (
               <div className="eyc-ac-detail">
                 <div className="eyc-ac-detail-call">
                   <span className="eyc-ac-detail-label">调用格式：</span>
                   {retLabel} {ci.name} （{paramSig}）{source && <> - {source}</>}
                 </div>
-                {ci.englishName && (
+                {hintEnglishName && (
                   <div className="eyc-ac-detail-eng">
-                    <span className="eyc-ac-detail-label">英文名称：</span>{ci.englishName}
+                    <span className="eyc-ac-detail-label">英文名称：</span>{hintEnglishName}
                   </div>
                 )}
                 {ci.description && (
