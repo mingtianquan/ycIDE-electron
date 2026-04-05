@@ -40,6 +40,11 @@
 - Linux / macOS 当前仍是占位实现：相关 `drawPanel` 文本函数仅返回 `0`，并未执行实际绘制，因此会表现为“不支持/无效果”。
 - 若你的数据是 UTF8/UTF16 二进制，请先通过 `krnln.text.utf8tostr` 或 `krnln.text.utf16tostr` 转回“文本型”再调用画板写出命令。
 
+## 数组操作命令实现位置说明
+
+- `数组操作` 属于核心命令范畴，运行时实现应放在 `impl/commands/windows_core_commands.cpp`（以及对应 Linux/macOS core 命令实现文件）中。
+- `impl/components/windows_Canvas.cpp` 仅用于“画板”组件行为实现，不承载核心数组命令逻辑。
+
 ### `画板1.定位写出` 传参示例
 
 - 结论：在 Windows 画板上，通常可以直接这样写：`画板1.定位写出(x, y, "中文ABC🙂")`。
