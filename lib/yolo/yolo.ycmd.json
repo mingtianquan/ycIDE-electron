@@ -1,0 +1,184 @@
+{
+    "contractVersion": "1.0",
+    "library": "yolo",
+    "libraryDisplayName": "YOLO支持库",
+    "libraryVersion": "1.0.0",
+    "implementations": {
+        "windows": {
+            "entry": "impl/yolo11.cpp",
+            "language": "cpp"
+        }
+    },
+    "commands": [
+        {
+            "commandId": "yolo.version",
+            "displayName": "取YOLO版本",
+            "summary": "Get DLL version string.",
+            "category": "yolo",
+            "params": [],
+            "returnType": "text"
+        },
+        {
+            "commandId": "yolo.sun",
+            "displayName": "整数求和",
+            "summary": "Simple integer add test method.",
+            "category": "yolo",
+            "params": [
+                { "name": "a", "type": "int" },
+                { "name": "b", "type": "int" }
+            ],
+            "returnType": "int"
+        },
+        {
+            "commandId": "yolo.getNcnnGpuCount",
+            "displayName": "取GPU数量",
+            "summary": "Get available NCNN GPU count.",
+            "category": "yolo",
+            "params": [],
+            "returnType": "int"
+        },
+        {
+            "commandId": "yolo.getNcnnRuntimeInfoJson",
+            "displayName": "取NCNN运行信息",
+            "summary": "Get runtime info as json string.",
+            "category": "yolo",
+            "params": [],
+            "returnType": "text"
+        },
+        {
+            "commandId": "yolo.releaseNcnnGlobalResources",
+            "displayName": "释放NCNN全局资源",
+            "summary": "Release retained global NCNN GPU resources.",
+            "category": "yolo",
+            "params": [],
+            "returnType": "void"
+        },
+        {
+            "commandId": "yolo.generateClassLabels",
+            "displayName": "生成类别标签",
+            "summary": "Scan directories and write class label file.",
+            "category": "yolo",
+            "params": [
+                { "name": "directory_path", "type": "text" },
+                { "name": "output_file", "type": "text" }
+            ],
+            "returnType": "bool"
+        },
+        {
+            "commandId": "yolo.loadModelFromFile",
+            "displayName": "从文件加载模型",
+            "summary": "Create model instance from param/bin file path.",
+            "category": "yolo",
+            "params": [
+                { "name": "param_path", "type": "text" },
+                { "name": "model_path", "type": "text" },
+                { "name": "yolo_version", "type": "int", "optional": true },
+                { "name": "picsize", "type": "int", "optional": true },
+                { "name": "ncnngpu", "type": "bool", "optional": true },
+                { "name": "use_fp16", "type": "bool", "optional": true }
+            ],
+            "returnType": "int64"
+        },
+        {
+            "commandId": "yolo.loadModelFromMemory",
+            "displayName": "从内存加载模型",
+            "summary": "Create model instance from in-memory param/bin data.",
+            "category": "yolo",
+            "params": [
+                { "name": "param_data", "type": "bytes" },
+                { "name": "param_len", "type": "int64" },
+                { "name": "model_data", "type": "bytes" },
+                { "name": "model_len", "type": "int64" },
+                { "name": "yolo_version", "type": "int", "optional": true },
+                { "name": "picsize", "type": "int", "optional": true },
+                { "name": "ncnngpu", "type": "bool", "optional": true },
+                { "name": "use_fp16", "type": "bool", "optional": true }
+            ],
+            "returnType": "int64"
+        },
+        {
+            "commandId": "yolo.releaseModel",
+            "displayName": "释放模型",
+            "summary": "Release model handle.",
+            "category": "yolo",
+            "params": [
+                { "name": "model", "type": "int64" }
+            ],
+            "returnType": "void"
+        },
+        {
+            "commandId": "yolo.releaseModelRef",
+            "displayName": "释放模型引用",
+            "summary": "Release model pointer by reference and reset to null.",
+            "category": "yolo",
+            "params": [
+                { "name": "model_ref", "type": "int64" }
+            ],
+            "returnType": "void"
+        },
+        {
+            "commandId": "yolo.detectObjects",
+            "displayName": "检测对象",
+            "summary": "Run detect from encoded image bytes and return objects vector handle.",
+            "category": "yolo",
+            "params": [
+                { "name": "model", "type": "int64" },
+                { "name": "image_data", "type": "bytes" },
+                { "name": "image_len", "type": "int64" },
+                { "name": "task_type", "type": "int", "optional": true }
+            ],
+            "returnType": "int64"
+        },
+        {
+            "commandId": "yolo.detectObjectsRaw",
+            "displayName": "检测对象_原始图像",
+            "summary": "Run detect from raw BGR image data and return objects vector handle.",
+            "category": "yolo",
+            "params": [
+                { "name": "model", "type": "int64" },
+                { "name": "bgr_data", "type": "bytes" },
+                { "name": "width", "type": "int" },
+                { "name": "height", "type": "int" },
+                { "name": "task_type", "type": "int", "optional": true }
+            ],
+            "returnType": "int64"
+        },
+        {
+            "commandId": "yolo.getObjectsCount",
+            "displayName": "取对象数量",
+            "summary": "Get object count from objects vector handle.",
+            "category": "yolo",
+            "params": [
+                { "name": "objects", "type": "int64" }
+            ],
+            "returnType": "int"
+        },
+        {
+            "commandId": "yolo.getObjectInfo",
+            "displayName": "取对象信息",
+            "summary": "Read one detection result by index.",
+            "category": "yolo",
+            "params": [
+                { "name": "objects", "type": "int64" },
+                { "name": "index", "type": "int" },
+                { "name": "x", "type": "float", "isVariable": true },
+                { "name": "y", "type": "float", "isVariable": true },
+                { "name": "w", "type": "float", "isVariable": true },
+                { "name": "h", "type": "float", "isVariable": true },
+                { "name": "label", "type": "int", "isVariable": true },
+                { "name": "prob", "type": "float", "isVariable": true }
+            ],
+            "returnType": "void"
+        },
+        {
+            "commandId": "yolo.freeObjectsVector",
+            "displayName": "释放对象集合",
+            "summary": "Free objects vector handle.",
+            "category": "yolo",
+            "params": [
+                { "name": "objects", "type": "int64" }
+            ],
+            "returnType": "void"
+        }
+    ]
+}

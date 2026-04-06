@@ -19,77 +19,6 @@ namespace ycfs = std::filesystem;
 
 namespace {
 
-// --- 命令类别：数组操作 ---
-// 调用格式：〈无返回值〉 重定义数组（通用型变量数组 欲重定义的数组变量，逻辑型 是否保留以前的内容，整数型 数组对应维的上限值，...）
-// 英文名称：ReDim
-// 本命令可以重新定义指定数组的维数及各维的上限值。本命令为初级命令。命令参数表中最后一个参数可以被重复添加。
-// 参数<1>“欲重定义的数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 参数<2>“是否保留以前的内容”类型为逻辑型（bool），初始值为假。
-// 参数<3>“数组对应维的上限值”类型为整数型（int）。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈整数型〉 取数组成员数（通用型变量/变量数组 欲检查的变量）
-// 英文名称：GetAryElementCount
-// 取指定数组变量的全部成员数目，如果该变量不为数组，返回 -1，本命令也可用于检查变量是否为数组变量。
-// 参数<1>“欲检查的变量”类型为通用型（all），提供参数数据时只能提供变量及变量数组。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈整数型〉 取数组下标（通用型变量/变量数组 欲取某维最大下标的数组变量，［整数型 欲取其最大下标的维］）
-// 英文名称：UBound
-// 返回指定数组维可用的最大下标（最小下标固定为 1）。若给定变量不为数组变量或指定维不存在，返回 0。
-// 参数<1>“欲取某维最大下标的数组变量”类型为通用型（all），提供参数数据时只能提供变量及变量数组。
-// 参数<2>“欲取其最大下标的维”类型为整数型（int），可省略，默认值为 1。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈无返回值〉 复制数组（通用型变量数组 复制到的数组变量，通用型数组 待复制的数组数据）
-// 英文名称：CopyAry
-// 将数组数据复制到指定数组变量，该数组变量内的所有数据和数组维定义信息将被全部覆盖。
-// 参数<1>“复制到的数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 参数<2>“待复制的数组数据”类型为通用型（all），提供参数数据时只能提供数组数据。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈无返回值〉 加入成员（通用型变量数组 欲加入成员的数组变量，通用型数组/非数组 欲加入的成员数据）
-// 英文名称：AddElement
-// 将数据加入到指定数组变量尾部，并通过重定义数组维数自动增加成员数。多维数组加入后将转换为单维数组。
-// 参数<1>“欲加入成员的数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 参数<2>“欲加入的成员数据”类型为通用型（all），可提供数组或非数组数据，且类型需与目标数组变量相匹配。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈无返回值〉 插入成员（通用型变量数组 欲插入成员的数组变量，整数型 欲插入的位置，通用型数组/非数组 欲插入的成员数据）
-// 英文名称：InsElement
-// 将数据插入到指定数组变量的指定位置，并通过重定义数组维数自动增加成员数。多维数组插入后将转换为单维数组。
-// 参数<1>“欲插入成员的数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 参数<2>“欲插入的位置”类型为整数型（int），位置值从 1 开始，越界时不插入数据。
-// 参数<3>“欲插入的成员数据”类型为通用型（all），可提供数组或非数组数据，且类型需与目标数组变量相匹配。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈整数型〉 删除成员（通用型变量数组 欲删除成员的数组变量，整数型 欲删除的位置，［整数型 欲删除的成员数目］）
-// 英文名称：RemoveElement
-// 删除指定数组变量中的成员，并通过重定义数组维数自动减少成员数。多维数组删除后将转换为单维数组。返回实际删除成员数。
-// 参数<1>“欲删除成员的数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 参数<2>“欲删除的位置”类型为整数型（int），位置值从 1 开始，越界时不删除数据。
-// 参数<3>“欲删除的成员数目”类型为整数型（int），可省略，默认值为 1。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈无返回值〉 清除数组（通用型变量数组 欲删除成员的数组变量）
-// 英文名称：RemoveAll
-// 删除指定数组变量中的全部成员，释放存储空间，并重定义为单维 0 成员数组。
-// 参数<1>“欲删除成员的数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 操作系统需求：Windows、Linux、Unix。
-//
-// 调用格式：〈无返回值〉 数组排序（通用型变量数组 数值数组变量，［逻辑型 排序方向是否为从小到大］）
-// 英文名称：SortAry
-// 对指定数值数组变量全部成员执行快速排序，不影响数组维定义信息，结果写回原数组变量。
-// 参数<1>“数值数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 参数<2>“排序方向是否为从小到大”类型为逻辑型（bool），可省略；真为升序，假为降序，默认值为真。
-// 操作系统需求：Windows、Linux。
-//
-// 调用格式：〈无返回值〉 数组清零（通用型变量数组 数值数组变量）
-// 英文名称：ZeroAry
-// 将指定数值数组变量内全部成员设置为 0，不影响数组维定义信息。
-// 参数<1>“数值数组变量”类型为通用型（all），提供参数数据时只能提供变量数组。
-// 操作系统需求：Windows、Linux。
-
 static wchar_t* krnln_store_text(const std::wstring& text) {
   static std::wstring slots[8];
   static int slotIndex = 0;
@@ -159,6 +88,104 @@ static int krnln_fs_find_match(const WIN32_FIND_DATAW* data, int attr) {
 }
 
 } // namespace
+
+namespace {
+  // Array element representation (each element can be a YC_BIN itself, allowing for complex types)
+  struct Array {
+    std::vector<YC_BIN> elements;
+    std::vector<int> dimensions; // Stores upper bounds of each dimension. e.g., for a[3][4], dimensions = {3, 4}
+
+    // Default constructor
+    Array() = default;
+
+    // Copy constructor
+    Array(const Array& other) = default;
+
+    // Move constructor
+    Array(Array&& other) noexcept = default;
+
+    // Copy assignment operator
+    Array& operator=(const Array& other) = default;
+
+    // Move assignment operator
+    Array& operator=(Array&& other) noexcept = default;
+  };
+
+  // Global array storage and ID management
+  static std::map<int, Array> g_arrays;
+  static int g_next_array_id = 1; // Start IDs from 1
+
+  // Helper to convert YC_BIN to an integer ID
+  static int bin_to_array_id(const YC_BIN& bin) {
+    if (bin.size() != sizeof(int)) return 0; // Invalid ID
+    return *reinterpret_cast<const int*>(bin.data());
+  }
+
+  // Helper to convert an integer ID to YC_BIN
+  static YC_BIN array_id_to_bin(int id) {
+    YC_BIN bin(sizeof(int));
+    memcpy(bin.data(), &id, sizeof(int));
+    return bin;
+  }
+
+  // Helper to get an Array object from a YC_BIN (which contains the ID)
+  static Array* get_array_from_bin(const YC_BIN& array_bin) {
+    int id = bin_to_array_id(array_bin);
+    if (id == 0 || g_arrays.find(id) == g_arrays.end()) {
+      return nullptr; // Array not found or invalid ID
+    }
+    return &g_arrays[id];
+  }
+
+  // Helper to store an Array object and return its YC_BIN ID
+  static YC_BIN store_array_to_bin(Array&& arr) {
+    int id = g_next_array_id++;
+    g_arrays[id] = std::move(arr);
+    return array_id_to_bin(id);
+  }
+
+  // Helper to delete an Array object by its YC_BIN ID
+  static void delete_array(const YC_BIN& array_bin) {
+    int id = bin_to_array_id(array_bin);
+    if (id != 0) {
+      g_arrays.erase(id);
+    }
+  }
+
+} // anonymous namespace for array management
+
+extern "C" YC_BIN krnln_array_redim(YC_BIN array_bin, bool preserve_data, const std::vector<int>& dimensions) {
+  Array* arr = get_array_from_bin(array_bin);
+  if (!arr) {
+    // If array_bin does not contain a valid array ID, create a new one.
+    Array new_arr;
+    new_arr.dimensions = dimensions;
+    int total_elements = 1;
+    for (int dim : dimensions) {
+      if (dim < 0) return array_bin; // Invalid dimension
+      total_elements *= dim;
+    }
+    new_arr.elements.resize(total_elements);
+    return store_array_to_bin(std::move(new_arr));
+  }
+
+  // Handle re-dimensioning an existing array
+  // TODO: Implement actual re-dimensioning logic, considering preserve_data
+  // For now, just update dimensions and clear elements if not preserving data
+  if (!preserve_data) {
+    arr->elements.clear();
+  }
+
+  arr->dimensions = dimensions;
+  int total_elements = 1;
+  for (int dim : dimensions) {
+    if (dim < 0) return array_bin; // Invalid dimension
+    total_elements *= dim;
+  }
+  arr->elements.resize(total_elements);
+
+  return array_bin; // Return the same array_bin ID
+}
 
 extern "C" int krnln_message_box(const char* text, const char* title) {
   const char* safeText = (text && text[0]) ? text : "";

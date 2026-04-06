@@ -1,4 +1,4 @@
-import { join, dirname, basename, extname } from 'path'
+﻿import { join, dirname, basename, extname, resolve } from 'path'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, copyFileSync, rmSync } from 'fs'
 import { execFile, execFileSync, ChildProcess } from 'child_process'
 import { app, BrowserWindow } from 'electron'
@@ -1225,6 +1225,94 @@ function loadCompileProtocols(): LoadedCompileProtocols {
   compileProtocolCache = { events, commands, controls, externs }
   return compileProtocolCache
 }
+function parseProtocolListValue(value: unknown, placeholderName: string): string[] {
+  const tokens: string[] = []
+  const normalizedPlaceholder = `%(${placeholderName})`.toLowerCase()
+  const pushToken = (raw: string): void => {
+    for (const part of raw.split(';')) {
+      const token = part.trim()
+      if (!token) continue
+      if (token.toLowerCase() === normalizedPlaceholder) continue
+      tokens.push(token)
+    }
+  }
+
+  if (typeof value === 'string') {
+    pushToken(value)
+  } else if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === 'string') pushToken(item)
+    }
+  }
+
+  return tokens
+}
+
+function resolveLibraryProtocolFile(libName: string): string | null {
+  const lib = libraryManager.getList().find(item => item.loaded && item.name === libName)
+  if (!lib) return null
+
+  const dir = (() => {
+    try {
+      return statSync(lib.filePath).isDirectory() ? lib.filePath : dirname(lib.filePath)
+    } catch {
+      return dirname(lib.filePath)
+    }
+  })()
+
+  const candidates = [
+    join(dir, `${libName}.protocol.json`),
+    join(dir, `${libName}.compile-protocol.json`),
+    join(dir, `${libName}.events.json`),
+  ]
+  for (const p of candidates) {
+    if (existsSync(p)) return p
+  }
+  return null
+}
+
+function isAbsolutePathLike(value: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\') || value.startsWith('/')
+}
+
+function readProtocolLinkerSettings(
+  libName: string,
+  targetPlatform: TargetPlatform,
+  targetArch: TargetArch,
+): { dependencies: string[]; libraryDirs: string[] } {
+  const protocolPath = resolveLibraryProtocolFile(libName)
+  if (!protocolPath) return { dependencies: [], libraryDirs: [] }
+
+  try {
+    const content = readFileSync(protocolPath, 'utf-8')
+    const parsed = JSON.parse(content) as LibraryCompileProtocol
+    const linkerSettings = parsed?.linkerSettings
+    if (!linkerSettings || typeof linkerSettings !== 'object') return { dependencies: [], libraryDirs: [] }
+
+    const platformBucket = (linkerSettings as Record<string, unknown>)[targetPlatform]
+    if (!platformBucket || typeof platformBucket !== 'object') return { dependencies: [], libraryDirs: [] }
+    const platformObject = platformBucket as Record<string, unknown>
+
+    const archCandidates: string[] = [targetArch, 'x64', 'x86', 'arm64', 'default']
+    let archBucket: Record<string, unknown> | null = null
+    for (const key of archCandidates) {
+      const value = platformObject[key]
+      if (value && typeof value === 'object') {
+        archBucket = value as Record<string, unknown>
+        break
+      }
+    }
+    if (!archBucket) archBucket = platformObject
+
+    const dependencies = parseProtocolListValue(archBucket.additionalDependencies, 'AdditionalDependencies')
+    const rawDirs = parseProtocolListValue(archBucket.additionalLibraryDirectories, 'AdditionalLibraryDirectories')
+    const protocolDir = dirname(protocolPath)
+    const libraryDirs = rawDirs.map(dir => isAbsolutePathLike(dir) ? dir : resolve(protocolDir, dir))
+    return { dependencies, libraryDirs }
+  } catch {
+    return { dependencies: [], libraryDirs: [] }
+  }
+}
 
 function emitProtocolExternDeclarations(scope: ExternDeclarationScope): string {
   const protocols = loadCompileProtocols()
@@ -1286,6 +1374,14 @@ function applyEmitTemplate(
       const start = startText ? parseInt(startText, 10) : 0
       if (!Number.isInteger(start) || start < 0) return cArgs.join(', ')
       return cArgs.slice(start).join(', ')
+    })
+    .replace(/\{&(\d+)\|([^{}]*)\}/g, (_m, idxText, defaultExpr) => {
+      const idx = parseInt(idxText, 10)
+      return Number.isInteger(idx) && idx >= 0 && idx < cArgs.length ? `&(${cArgs[idx]})` : (defaultExpr || '0')
+    })
+    .replace(/\{&(\d+)\}/g, (_m, idxText) => {
+      const idx = parseInt(idxText, 10)
+      return Number.isInteger(idx) && idx >= 0 && idx < cArgs.length ? `&(${cArgs[idx]})` : '0'
     })
     .replace(/\{(\d+)\|([^{}]*)\}/g, (_m, idxText, defaultExpr) => {
       const idx = parseInt(idxText, 10)
@@ -4816,6 +4912,24 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
       lib,
       staticLib: libraryManager.findStaticLib(lib.name, targetArch),
     }))
+    const protocolAdditionalLibs: string[] = []
+    const protocolAdditionalLibDirs: string[] = []
+    const seenProtocolLibs = new Set<string>()
+    const seenProtocolLibDirs = new Set<string>()
+    for (const item of resolvedStaticLibs) {
+      const linkerSettings = readProtocolLinkerSettings(item.lib.name, targetPlatform, targetArch)
+      for (const dep of linkerSettings.dependencies) {
+        if (seenProtocolLibs.has(dep)) continue
+        seenProtocolLibs.add(dep)
+        protocolAdditionalLibs.push(dep)
+      }
+      for (const libDir of linkerSettings.libraryDirs) {
+        const normalized = normalizeDirPath(libDir)
+        if (!normalized || seenProtocolLibDirs.has(normalized)) continue
+        seenProtocolLibDirs.add(normalized)
+        protocolAdditionalLibDirs.push(normalized)
+      }
+    }
     const hasDebugStyleStaticLib = resolvedStaticLibs.some(item => {
       if (!item.staticLib) return false
       const p = item.staticLib
@@ -4860,6 +4974,24 @@ export async function compileProject(options: CompileOptions, editorFiles?: Map<
         sendMessage({ type: 'info', text: `MSVC 库搜索目录: ${windowsMsvcLibDirs.join('; ')}` })
       }
       sendMessage({ type: 'info', text: `Windows 链接模式: ${windowsLinkFlavor === 'msvc' ? 'MSVC' : 'GNU'}` })
+    }
+
+    if (protocolAdditionalLibDirs.length > 0) {
+      for (const libDir of protocolAdditionalLibDirs) {
+        args.push('-L', libDir)
+        if (targetPlatform === 'windows' && windowsLinkFlavor === 'msvc' && !windowsMsvcLibDirs.includes(libDir)) {
+          windowsMsvcLibDirs.push(libDir)
+        }
+      }
+      sendMessage({ type: 'info', text: `协议库目录: ${protocolAdditionalLibDirs.join('; ')}` })
+    }
+
+    if (protocolAdditionalLibs.length > 0) {
+      args.push(...protocolAdditionalLibs)
+      if (targetPlatform === 'windows' && windowsLinkFlavor === 'msvc') {
+        msvcLinkInputs.push(...protocolAdditionalLibs)
+      }
+      sendMessage({ type: 'info', text: `协议附加库: ${protocolAdditionalLibs.join('; ')}` })
     }
 
     const isWindowsApp = project.outputType === 'WindowsApp'
@@ -5264,3 +5396,6 @@ export function continueDebugExecutable(): boolean {
     return false
   }
 }
+
+
+

@@ -1,0 +1,105 @@
+{
+    "formatVersion":  "1.0",
+    "library":  "yolo",
+    "libraryDisplayName":  "YOLO支持库",
+    "libraryVersion":  "1.0.0",
+    "commands":  [
+                     {
+                         "commandId":  "yolo.version",
+                         "displayName":  "取YOLO版本",
+                         "entry":  "yolo_version",
+                         "returnType":  "text"
+                     },
+                     {
+                         "commandId":  "yolo.sun",
+                         "displayName":  "整数求和",
+                         "entry":  "yolo_sun",
+                         "returnType":  "int"
+                     },
+                     {
+                         "commandId":  "yolo.getNcnnGpuCount",
+                         "displayName":  "取GPU数量",
+                         "entry":  "yolo_get_ncnn_gpu_count",
+                         "returnType":  "int"
+                     },
+                     {
+                         "commandId":  "yolo.getNcnnRuntimeInfoJson",
+                         "displayName":  "取NCNN运行信息",
+                         "entry":  "yolo_get_ncnn_runtime_info_json",
+                         "returnType":  "text"
+                     },
+                     {
+                         "commandId":  "yolo.releaseNcnnGlobalResources",
+                         "displayName":  "释放NCNN全局资源",
+                         "entry":  "yolo_release_ncnn_global_resources",
+                         "returnType":  "void"
+                     },
+                     {
+                         "commandId":  "yolo.generateClassLabels",
+                         "displayName":  "生成类别标签",
+                         "entry":  "yolo_generate_class_labels",
+                         "returnType":  "bool"
+                     },
+                     {
+                         "commandId":  "yolo.loadModelFromFile",
+                         "displayName":  "从文件加载模型",
+                         "entry":  "yolo_load_model_from_file",
+                         "returnType":  "int64"
+                     },
+                     {
+                         "commandId":  "yolo.loadModelFromMemory",
+                         "displayName":  "从内存加载模型",
+                         "entry":  "yolo_load_model_from_memory",
+                         "returnType":  "int64"
+                     },
+                     {
+                         "commandId":  "yolo.releaseModel",
+                         "displayName":  "释放模型",
+                         "entry":  "yolo_release_model",
+                         "returnType":  "void"
+                     },
+                     {
+                         "commandId":  "yolo.releaseModelRef",
+                         "displayName":  "释放模型引用",
+                         "entry":  "yolo_release_model_ref",
+                         "returnType":  "void"
+                     },
+                     {
+                         "commandId":  "yolo.detectObjects",
+                         "displayName":  "检测对象",
+                         "entry":  "yolo_detect_objects",
+                         "returnType":  "int64"
+                     },
+                     {
+                         "commandId":  "yolo.detectObjectsRaw",
+                         "displayName":  "检测对象_原始图像",
+                         "entry":  "yolo_detect_objects_raw",
+                         "returnType":  "int64"
+                     },
+                     {
+                         "commandId":  "yolo.getObjectsCount",
+                         "displayName":  "取对象数量",
+                         "entry":  "yolo_get_objects_count",
+                         "returnType":  "int"
+                     },
+                     {
+                         "commandId":  "yolo.getObjectInfo",
+                         "displayName":  "取对象信息",
+                         "entry":  "yolo_get_object_info",
+                         "returnType":  "void"
+                     },
+                     {
+                         "commandId":  "yolo.freeObjectsVector",
+                         "displayName":  "释放对象集合",
+                         "entry":  "yolo_free_objects_vector",
+                         "returnType":  "void"
+                     }
+                 ],
+    "artifacts":  {
+                      "windows":  {
+                                      "x64":  {
+                                                  "staticLib":  "build/windows/x64/Release/yolo.lib"
+                                              }
+                                  }
+                  }
+}
